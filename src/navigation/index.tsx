@@ -1,3 +1,4 @@
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HeaderButton, Text } from '@react-navigation/elements';
 import {
@@ -5,20 +6,94 @@ import {
   StaticParamList,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Image } from 'react-native';
+import { Image, View } from 'react-native';
 import bell from '../assets/bell.png';
 import newspaper from '../assets/newspaper.png';
 import tag from '../assets/tag.png';
-import { Login } from './screens/Login';
-import { Register } from './screens/Register';
-import { Home } from './screens/Home';
-import { Profile } from './screens/Profile';
-import { Settings } from './screens/Settings';
-import { Updates } from './screens/Updates';
-import { AdjustPrinter } from './screens/AdjustPrinter';
-import { ScanProduct } from './screens/ScanProduct';
-import { Discount } from './screens/Discount';
-import { NotFound } from './screens/NotFound';
+import { useDiscount } from '../modules/discount/state/DiscountContext';
+import { useAuth } from '../auth/AuthContext';
+import { Login } from './screens/Auth/Login';
+import { Register } from './screens/Auth/Register';
+import { Home } from './screens/Home/Home';
+import { Profile } from './screens/Profile/Profile';
+import { Settings } from './screens/Settings/Settings';
+import { Updates } from './screens/Updates/Updates';
+import { AdjustPrinter } from '../modules/discount/screens/AdjustPrinterScreen';
+import { ScanProduct } from '../modules/discount/screens/ScanProductScreen';
+import { Discount } from '../modules/discount/screens/DiscountScreen';
+import { NotFound } from './screens/NotFound/NotFound';
+
+function DiscountHeaderRight() {
+  const { scans } = useDiscount();
+  const { defaultOutlet } = useAuth();
+  const count = scans.length;
+  const showPrintAll = count > 1;
+  const outletCode = defaultOutlet || '—';
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 999,
+          backgroundColor: '#e5f0ff',
+          borderWidth: 1,
+          borderColor: '#bfdbfe',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: '#22c55e',
+            marginRight: 6,
+          }}
+        />
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: '600',
+            color: '#1d4ed8',
+          }}
+        >
+          Outlet {String(outletCode)}
+        </Text>
+      </View>
+      {showPrintAll && (
+        <View
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: '#d1d5db',
+            backgroundColor: '#ffffff',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '600',
+              color: '#111827',
+            }}
+          >
+            Print all
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 const HomeTabs = createBottomTabNavigator({
   screens: {
@@ -58,15 +133,17 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Discount',
         tabBarIcon: ({ color, size }) => (
-          <Image
-            source={tag}
-            tintColor={color}
+          <Text
             style={{
-              width: size,
-              height: size,
+              color,
+              fontSize: size * 0.9,
+              fontWeight: '700',
             }}
-          />
+          >
+            %
+          </Text>
         ),
+        headerRight: () => <DiscountHeaderRight />,
       },
     },
   },

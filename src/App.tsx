@@ -7,6 +7,7 @@ import * as React from 'react';
 import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
 import { AuthProvider } from './auth/AuthContext';
+import { DiscountProvider } from './modules/discount/state/DiscountContext';
 
 Asset.loadAsync([
   ...NavigationAssets,
@@ -26,16 +27,18 @@ export function App() {
 
   return (
     <AuthProvider>
-    <Navigation
-      theme={theme}
-      linking={{
-        enabled: 'auto',
-        prefixes: [prefix],
-      }}
-      onReady={() => {
-        SplashScreen.hideAsync();
-      }}
-    />
+      <DiscountProvider>
+        <Navigation
+          theme={theme}
+          linking={{
+            enabled: 'auto',
+            prefixes: [prefix],
+          }}
+          onReady={() => {
+            SplashScreen.hideAsync();
+          }}
+        />
+      </DiscountProvider>
     </AuthProvider>
   );
 }
