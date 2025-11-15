@@ -15,8 +15,8 @@ import {
 	View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../auth/AuthContext';
-import { getDeviceId } from '../../utils/deviceId';
+import { useAuth } from '../../../auth/AuthContext';
+import { getDeviceId } from '../../../utils/deviceId';
 
 // Simple random string generator that works in React Native without crypto
 function generateRandomId(): string {
@@ -223,7 +223,6 @@ export function Register(_: Props) {
 			console.log('Register response status:', response.status);
 			// eslint-disable-next-line no-console
 			console.log('Register response body:', data ?? text);
-
 			if (response.ok) {
 				const token = data?.results?.[0]?.token ?? null;
 				if (token) {
@@ -485,5 +484,3 @@ const styles = StyleSheet.create({
 		marginTop: 32,
 	},
 });
-
-

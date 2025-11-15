@@ -2,7 +2,7 @@ import { Button, Text } from '@react-navigation/elements';
 import { StyleSheet, View } from 'react-native';
 import * as React from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../auth/AuthContext';
+import { useAuth } from '../../../auth/AuthContext';
 
 export function Home() {
   const navigation = useNavigation<any>();
