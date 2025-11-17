@@ -36,6 +36,7 @@ function DiscountHeaderRight() {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        marginRight: 12,
       }}
     >
       <View
@@ -61,12 +62,12 @@ function DiscountHeaderRight() {
         />
         <Text
           style={{
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: '600',
             color: '#1d4ed8',
           }}
         >
-          Outlet {String(outletCode)}
+          {String(outletCode)}
         </Text>
       </View>
       {showPrintAll && (
