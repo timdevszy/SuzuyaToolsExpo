@@ -10,6 +10,7 @@ import {
 	View,
 	Platform,
 	Dimensions,
+	PermissionsAndroid,
 } from 'react-native';
 import RNBluetoothClassic, {
 	BluetoothDevice,
@@ -26,7 +27,7 @@ type PrinterDevice = {
 	device?: BluetoothDevice;
 };
 
-// Check if Bluetooth module is available (Android only)
+// Cek apakah modul Bluetooth tersedia (hanya Android)
 const isBluetoothAvailable = () => {
 	if (Platform.OS !== 'android') return false;
 	return RNBluetoothClassic && typeof RNBluetoothClassic.isBluetoothEnabled === 'function';
@@ -57,7 +58,7 @@ export function AdjustPrinter() {
 	const [bluetoothAvailable, setBluetoothAvailable] = useState(false);
 	const [cardWidth, setCardWidth] = useState(() => Math.min(220, Dimensions.get('window').width - 72));
 
-	// Test barcode data
+	// Data barcode untuk uji coba cetak
 	const testBarcodes = [
 		{ code: '1234567890123', normalPrice: 13000, discountPrice: 5000 },
 		{ code: '9876543210987', normalPrice: 13000, discountPrice: 5000 },
@@ -77,12 +78,23 @@ export function AdjustPrinter() {
 	}, []);
 
 	const initializeConnectedDevice = useCallback(async () => {
-		if (!isBluetoothAvailable()) return;
+		if (!isBluetoothAvailable()) {
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Modul Bluetooth tidak tersedia saat inisialisasi perangkat terhubung');
+			return;
+		}
 		try {
 			if (typeof RNBluetoothClassic.getConnectedDevices === 'function') {
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Mengambil daftar perangkat yang sudah terhubung dari native');
 				const connectedList = await RNBluetoothClassic.getConnectedDevices();
 				if (connectedList?.length) {
 					const primary = connectedList[0];
+					// eslint-disable-next-line no-console
+					console.log('[Printer] Perangkat utama yang sudah terhubung ditemukan', {
+						name: primary.name,
+						address: primary.address,
+					});
 					setConnectedDevice(primary);
 					setSelectedDeviceId(primary.address);
 					setDevices((prev) => ensureDeviceInList(prev, mapBluetoothDevice(primary)));
@@ -96,18 +108,22 @@ export function AdjustPrinter() {
 	}, []);
 
 	useEffect(() => {
-		// On iOS, this screen is view-only with a message; Bluetooth is Android-only
+		// Pada iOS, layar ini hanya bersifat tampilan saja; Bluetooth hanya untuk Android
 		if (Platform.OS !== 'android') {
 			setBluetoothAvailable(false);
 			setBluetoothEnabled(false);
 			return;
 		}
 
-		// Check if Bluetooth module is available (Android)
+		// Cek apakah modul Bluetooth tersedia ketika layar dibuka (Android)
 		const available = isBluetoothAvailable();
 		setBluetoothAvailable(available);
-
+		// eslint-disable-next-line no-console
+		console.log('[Printer] Status ketersediaan modul Bluetooth', { available });
+		
 		if (available) {
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Modul Bluetooth tersedia, cek status bluetooth dan perangkat terhubung awal');
 			checkBluetoothEnabled();
 			initializeConnectedDevice();
 		} else {
@@ -120,12 +136,16 @@ export function AdjustPrinter() {
 	const checkBluetoothEnabled = async () => {
 		if (!isBluetoothAvailable()) {
 			setBluetoothEnabled(false);
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Cek Bluetooth dibatalkan karena modul tidak tersedia');
 			return false;
 		}
 		
 		try {
 			const enabled = await RNBluetoothClassic.isBluetoothEnabled();
 			setBluetoothEnabled(enabled);
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Status Bluetooth dari native', { enabled });
 			if (!enabled) {
 				Alert.alert(
 					'Bluetooth Disabled',
@@ -136,7 +156,7 @@ export function AdjustPrinter() {
 			return enabled;
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Error checking Bluetooth:', error);
+			console.error('[Printer] Error saat mengecek status Bluetooth:', error);
 			setBluetoothEnabled(false);
 			Alert.alert('Error', 'Failed to check Bluetooth status. Please rebuild native app.');
 			return false;
@@ -154,11 +174,50 @@ export function AdjustPrinter() {
 		
 		try {
 			if (Platform.OS === 'android') {
-				const granted = await RNBluetoothClassic.requestBluetoothEnabled();
-				if (!granted) {
+				// Memastikan Bluetooth aktif (permintaan spesifik dari library)
+				const enabled = await RNBluetoothClassic.requestBluetoothEnabled();
+				if (!enabled) {
 					Alert.alert(
 						'Permission Required',
-						'Bluetooth permission is required to scan for printers.'
+						'Bluetooth must be enabled to scan for printers.',
+					);
+					return false;
+				}
+
+				// Meminta izin runtime berdasarkan versi Android
+				const permissionsToRequest: string[] = [];
+
+				if (Platform.Version >= 31) {
+					// Android 12+ menggunakan izin Bluetooth "nearby" yang baru
+					permissionsToRequest.push(
+						'android.permission.BLUETOOTH_SCAN',
+						'android.permission.BLUETOOTH_CONNECT',
+					);
+				} else {
+					permissionsToRequest.push(
+						'android.permission.BLUETOOTH',
+						'android.permission.BLUETOOTH_ADMIN',
+					);
+				}
+
+				// Izin lokasi sering dibutuhkan untuk proses pencarian perangkat di banyak tipe perangkat
+				permissionsToRequest.push('android.permission.ACCESS_FINE_LOCATION');
+
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Meminta izin Bluetooth dan lokasi', { permissionsToRequest });
+				const granted = await PermissionsAndroid.requestMultiple(
+					permissionsToRequest as any,
+				);
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Hasil izin Bluetooth dan lokasi', { granted });
+				const allGranted = Object.values(granted).every(
+					(status) => status === PermissionsAndroid.RESULTS.GRANTED,
+				);
+
+				if (!allGranted) {
+					Alert.alert(
+						'Permission Required',
+						'Bluetooth and location permissions are required to scan for printers.',
 					);
 					return false;
 				}
@@ -166,7 +225,7 @@ export function AdjustPrinter() {
 			return true;
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Permission error:', error);
+			console.error('[Printer] Error saat meminta izin Bluetooth:', error);
 			Alert.alert('Error', 'Failed to request Bluetooth permission');
 			return false;
 		}
@@ -182,21 +241,35 @@ export function AdjustPrinter() {
 		}
 
 		if (!bluetoothEnabled) {
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Bluetooth belum aktif, mencoba cek dan meminta user mengaktifkan');
 			const enabled = await checkBluetoothEnabled();
 			if (!enabled) return;
 		}
 
+		// eslint-disable-next-line no-console
+		console.log('[Printer] Memulai proses refresh perangkat Bluetooth');
 		const hasPermission = await requestBluetoothPermission();
 		if (!hasPermission) return;
 
 		setIsScanning(true);
+		// eslint-disable-next-line no-console
+		console.log('[Printer] Mulai proses pemindaian perangkat (paired, connected, discovery)');
+
+		let updatedDevices: PrinterDevice[] = [];
 
 		try {
-			// Get paired devices first
+			// Mengambil perangkat yang sudah dipasangkan (paired/bonded) terlebih dahulu
 			const paired = await RNBluetoothClassic.getBondedDevices();
-			let updatedDevices: PrinterDevice[] = paired.map(mapBluetoothDevice);
+			// Debug: log perangkat yang sudah dipasangkan dari sisi native
+			// eslint-disable-next-line no-console
+			console.log(
+				'[Printer] Perangkat yang sudah dipasangkan (bonded devices):',
+				paired.map((d) => ({ name: d.name, address: d.address })),
+			);
+			updatedDevices = paired.map(mapBluetoothDevice);
 
-			// Merge with currently connected devices
+			// Menggabungkan dengan perangkat yang sedang terhubung saat ini
 			if (typeof RNBluetoothClassic.getConnectedDevices === 'function') {
 				try {
 					const connectedList = await RNBluetoothClassic.getConnectedDevices();
@@ -210,7 +283,7 @@ export function AdjustPrinter() {
 					});
 				} catch (connectedError) {
 					// eslint-disable-next-line no-console
-					console.warn('Unable to merge connected devices', connectedError);
+					console.warn('[Printer] Gagal menggabungkan perangkat yang sedang terhubung', connectedError);
 				}
 			}
 
@@ -218,34 +291,53 @@ export function AdjustPrinter() {
 				updatedDevices = ensureDeviceInList(updatedDevices, mapBluetoothDevice(connectedDevice));
 			}
 
-			setDevices(updatedDevices);
-
-			// Also try to discover devices (may require additional permissions)
+			// Juga mencoba menemukan perangkat di sekitar (discovery), mungkin membutuhkan izin tambahan
 			try {
 				if (typeof RNBluetoothClassic.startDiscovery === 'function') {
-					await Promise.race([
+					const discoveryResult: any = await Promise.race([
 						RNBluetoothClassic.startDiscovery(),
 						new Promise((resolve) => setTimeout(resolve, 5000)),
 					]);
+
+					// Jika discovery mengembalikan perangkat, gabungkan juga ke daftar
+					if (Array.isArray(discoveryResult)) {
+						(discoveryResult as BluetoothDevice[]).forEach((device) => {
+							updatedDevices = ensureDeviceInList(updatedDevices, mapBluetoothDevice(device));
+						});
+					}
 				}
 			} catch (discoveryError) {
-				// Discovery may fail, that's okay - we have paired devices
+				// Proses discovery bisa gagal, log error sebenarnya untuk debugging
 				// eslint-disable-next-line no-console
-				console.log('Discovery not available, using paired devices only');
+				console.error('[Printer] Error saat melakukan discovery Bluetooth:', discoveryError);
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Discovery tidak tersedia, hanya menggunakan perangkat yang sudah dipasangkan');
 			}
+
+			// Terakhir, perbarui daftar perangkat dengan semua data yang sudah dikumpulkan
+			// eslint-disable-next-line no-console
+			console.log(
+				'[Printer] Daftar perangkat printer setelah pemindaian:',
+				updatedDevices.map((d) => ({ name: d.name, address: d.address })),
+			);
+			setDevices(updatedDevices);
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Scan error:', error);
+			console.error('[Printer] Error saat melakukan pemindaian perangkat:', error);
 			Alert.alert('Error', `Failed to scan for devices: ${error.message || 'Unknown error'}`);
 		} finally {
 			try {
 				if (typeof RNBluetoothClassic.cancelDiscovery === 'function') {
 					await RNBluetoothClassic.cancelDiscovery();
+					// eslint-disable-next-line no-console
+					console.log('[Printer] Discovery dibatalkan (cancelDiscovery dipanggil)');
 				}
 			} catch {
-				// ignore
+				// abaikan error cancel discovery
 			}
 			setIsScanning(false);
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Pemindaian perangkat selesai');
 		}
 	};
 
@@ -257,24 +349,67 @@ export function AdjustPrinter() {
 
 		setConnectingDeviceId(device.id);
 		setSelectedDeviceId(device.id);
+		// eslint-disable-next-line no-console
+		console.log('[Printer] Memulai proses koneksi ke perangkat', {
+			id: device.id,
+			name: device.name,
+			address: device.address,
+		});
 
 		try {
-			const connected = await device.device.connect();
+			// Cek terlebih dahulu apakah perangkat sudah terhubung
+			let isAlreadyConnected = false;
+			try {
+				if (typeof device.device.isConnected === 'function') {
+					isAlreadyConnected = await device.device.isConnected();
+				}
+			} catch {
+				// abaikan error saat cek status koneksi dan lanjutkan mencoba koneksi baru
+			}
+
+			let connected = isAlreadyConnected;
+			if (!connected) {
+				// Gunakan opsi koneksi eksplisit untuk kompatibilitas yang lebih baik dengan printer thermal
+				const connectionOptions: any = {
+					CONNECTOR_TYPE: 'rfcomm',
+					CONNECTION_TYPE: 'delimited',
+					SECURE_SOCKET: false,
+					DELIMITER: '\n',
+					DEVICE_CHARSET: Platform.OS === 'ios' ? 1536 : 'utf-8',
+				};
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Mencoba menghubungkan ke perangkat dengan opsi', connectionOptions);
+
+				if (typeof device.device.connect === 'function') {
+					connected = await device.device.connect(connectionOptions);
+				} else {
+					connected = false;
+				}
+			}
+
 			if (connected) {
 				setConnectedDevice(device.device);
 				setPrinterConfigured(true);
 				Alert.alert('Success', `Connected to ${device.name}`);
+				// eslint-disable-next-line no-console
+				console.log('[Printer] Berhasil terhubung ke perangkat', {
+					id: device.id,
+					name: device.name,
+					address: device.address,
+				});
 			} else {
 				Alert.alert('Error', 'Failed to connect to device');
 				setSelectedDeviceId(connectedDevice ? connectedDevice.address : null);
 			}
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Connection error:', error);
+			console.error('[Printer] Error saat mencoba menghubungkan ke perangkat:', error);
 			Alert.alert('Connection Failed', error.message || 'Failed to connect to printer');
 			setSelectedDeviceId(connectedDevice ? connectedDevice.address : null);
 		} finally {
 			setConnectingDeviceId(null);
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Proses koneksi ke perangkat selesai');
 		}
 	};
 
@@ -286,9 +421,11 @@ export function AdjustPrinter() {
 			setSelectedDeviceId(null);
 			setConnectedDevice(null);
 			Alert.alert('Disconnected', 'Printer disconnected successfully');
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Berhasil memutus koneksi dari perangkat');
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Disconnect error:', error);
+			console.error('[Printer] Error saat memutus koneksi dari perangkat:', error);
 			Alert.alert('Error', 'Failed to disconnect');
 		}
 	};
@@ -300,58 +437,63 @@ export function AdjustPrinter() {
 		}
 
 		try {
-			// ESC/POS commands for thermal printer
+			// Perintah ESC/POS untuk printer thermal
 			let printData = '';
 
-			// Initialize printer
+			// Inisialisasi printer
 			printData += '\x1B\x40'; // ESC @ - Initialize
 
-			// Set alignment center
+			// Mengatur perataan teks ke tengah
 			printData += '\x1B\x61\x01'; // ESC a 1 - Center align
 
-			// Barcode (Code128)
+			// Mencetak barcode (Code128)
 			printData += `\x1D\x6B\x04${barcode.code}\x00`; // GS k 4 - Code128
 
-			// Line feed
+			// Baris baru setelah barcode
 			printData += '\x0A';
 
-			// Barcode code text
+			// Teks kode barcode
 			printData += `${barcode.code}\n`;
 
-			// Price section
+			// Bagian harga
 			printData += 'Harga: ';
-			// Normal price (strikethrough - ESC/POS doesn't support strikethrough directly, so we'll use underline)
+			// Harga normal (strikethrough - ESC/POS tidak mendukung coret tengah secara langsung, jadi menggunakan underline)
 			printData += '\x1B\x2D\x01'; // ESC - 1 - Underline on
 			printData += `Rp. ${barcode.normalPrice.toLocaleString('id-ID')}`;
 			printData += '\x1B\x2D\x00'; // ESC - 0 - Underline off
 			printData += ' ';
-			// Discount price
+			// Harga diskon
 			printData += `Rp. ${barcode.discountPrice.toLocaleString('id-ID')}\n`;
 
-			// Line feeds
+			// Beberapa baris baru di akhir
 			printData += '\x0A\x0A';
 
-			// Auto cut if enabled
+			// Auto cut jika opsi auto cut aktif
 			if (autoCut) {
 				printData += '\x1D\x56\x00'; // GS V 0 - Full cut
 			}
 
-			// Send to printer
+			// Kirim data ke printer
 			await connectedDevice.write(printData);
 
 			Alert.alert('Success', `Test Print ${testNumber} sent to printer`);
+			// eslint-disable-next-line no-console
+			console.log('[Printer] Data uji cetak berhasil dikirim ke printer', {
+				testNumber,
+				barcode,
+			});
 		} catch (error: any) {
 			// eslint-disable-next-line no-console
-			console.error('Print error:', error);
+			console.error('[Printer] Error saat mengirim data uji cetak ke printer:', error);
 			Alert.alert('Print Failed', error.message || 'Failed to send print job');
 		}
 	};
 
 	return (
 		<ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-			{/* Settings Section */}
+			{/* Bagian pengaturan umum printer */}
 			<SectionCard style={styles.section}>
-				<Text style={styles.sectionTitle}>Settings</Text>
+				<Text style={styles.sectionTitle}>Pengaturan</Text>
 				<View style={styles.checkboxContainer}>
 					<Pressable
 						style={styles.checkbox}
@@ -383,9 +525,9 @@ export function AdjustPrinter() {
 				</View>
 			</SectionCard>
 
-			{/* Device Section */}
+			{/* Bagian daftar perangkat Bluetooth */}
 			<SectionCard style={styles.section}>
-				<Text style={styles.sectionTitle}>Device</Text>
+				<Text style={styles.sectionTitle}>Perangkat</Text>
 				<View style={styles.deviceHeader}>
 					<Text style={styles.deviceSubtitle}>Printer yang ter-deteksi menggunakan Bluetooth</Text>
 					<Pressable
@@ -400,6 +542,25 @@ export function AdjustPrinter() {
 						)}
 					</Pressable>
 				</View>
+				{/* Status ringkas Bluetooth & koneksi untuk membantu debugging */}
+				<View style={styles.statusRow}>
+					<Text style={styles.statusLabel}>Status modul:</Text>
+					<Text style={styles.statusValue}>
+						{bluetoothAvailable ? 'Tersedia' : 'Tidak tersedia (perlu rebuild native)'}
+					</Text>
+				</View>
+				<View style={styles.statusRow}>
+					<Text style={styles.statusLabel}>Bluetooth:</Text>
+					<Text style={styles.statusValue}>
+						{bluetoothEnabled ? 'Aktif' : 'Nonaktif'}
+					</Text>
+				</View>
+				<View style={styles.statusRow}>
+					<Text style={styles.statusLabel}>Perangkat terhubung:</Text>
+					<Text style={styles.statusValue}>
+						{connectedDevice ? connectedDevice.name || connectedDevice.address : 'Tidak ada'}
+					</Text>
+				</View>
 
 				{!bluetoothAvailable && (
 					<View style={styles.errorBox}>
@@ -412,24 +573,23 @@ export function AdjustPrinter() {
 				)}
 				{bluetoothAvailable && !bluetoothEnabled && (
 					<View style={styles.warningBox}>
-						<Text style={styles.warningText}>Bluetooth is disabled. Please enable it in settings.</Text>
+						<Text style={styles.warningText}>Bluetooth tidak aktif. Silakan aktifkan di pengaturan.</Text>
 					</View>
 				)}
 
 				{devices.length === 0 && !isScanning && bluetoothEnabled && (
 					<View style={styles.emptyDevices}>
-						<Text style={styles.emptyDevicesText}>No devices found</Text>
-						<Text style={styles.emptyDevicesSubtext}>Tap Refresh to scan for printers</Text>
+						<Text style={styles.emptyDevicesText}>Tidak ada perangkat ditemukan</Text>
+						<Text style={styles.emptyDevicesSubtext}>Tap Refresh untuk memindai printer</Text>
 					</View>
 				)}
-
 				{devices.map((device) => (
 					<View key={device.id} style={styles.deviceItem}>
 						<View style={styles.deviceInfo}>
 							<Text style={styles.deviceName}>{device.name}</Text>
 							<Text style={styles.deviceAddress}>{device.address}</Text>
 							{selectedDeviceId === device.id && connectedDevice && (
-								<Text style={styles.connectedLabel}>Connected</Text>
+								<Text style={styles.connectedLabel}>Terhubung</Text>
 							)}
 						</View>
 						{selectedDeviceId === device.id && connectedDevice ? (
@@ -437,7 +597,7 @@ export function AdjustPrinter() {
 								style={[styles.button, styles.disconnectButton]}
 								onPress={handleDisconnect}
 							>
-								<Text style={[styles.buttonText, styles.buttonTextWhite]}>Disconnect</Text>
+								<Text style={[styles.buttonText, styles.buttonTextWhite]}>Putuskan</Text>
 							</Pressable>
 						) : (
 							<Pressable
@@ -451,7 +611,7 @@ export function AdjustPrinter() {
 								{connectingDeviceId === device.id ? (
 									<ActivityIndicator size="small" color="white" />
 								) : (
-									<Text style={[styles.buttonText, styles.buttonTextWhite]}>Connect</Text>
+									<Text style={[styles.buttonText, styles.buttonTextWhite]}>Hubungkan</Text>
 								)}
 							</Pressable>
 						)}
@@ -459,7 +619,7 @@ export function AdjustPrinter() {
 				))}
 			</SectionCard>
 
-				{/* Test Print Section - extracted component */}
+			{/* Bagian uji cetak barcode */}
 			<TestPrintSection
 				barcodes={testBarcodes}
 				cardWidth={cardWidth}
@@ -536,6 +696,21 @@ const styles = StyleSheet.create({
 		color: '#666',
 		flex: 1,
 		marginRight: 12,
+	},
+	statusRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 4,
+	},
+	statusLabel: {
+		fontSize: 12,
+		color: '#666',
+	},
+	statusValue: {
+		fontSize: 12,
+		color: '#111',
+		fontWeight: '500',
 	},
 	button: {
 		paddingVertical: 10,
