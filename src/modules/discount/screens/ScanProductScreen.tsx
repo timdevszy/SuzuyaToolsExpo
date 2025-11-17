@@ -74,6 +74,7 @@ export function ScanProduct() {
 			setRawResponse(null);
 
 			try {
+				const normalizedDiscount = String(defaultDiscount ?? '0');
 				if (USE_DUMMY_SCANPRODUCT) {
 					const dummyData = {
 						code: trimmed,
@@ -89,6 +90,7 @@ export function ScanProduct() {
 					setRawResponse({ data: dummyData, source: 'dummy' });
 					setLastScan({
 						code: trimmed,
+						discount: normalizedDiscount,
 						payload: dummyData,
 						scannedAt: new Date().toISOString(),
 					});
@@ -107,6 +109,7 @@ export function ScanProduct() {
 						if (product) {
 							setLastScan({
 								code: trimmed,
+								discount: normalizedDiscount,
 								payload: product,
 								scannedAt: new Date().toISOString(),
 							});

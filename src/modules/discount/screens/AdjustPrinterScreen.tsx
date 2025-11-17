@@ -120,6 +120,18 @@ export function AdjustPrinter() {
 		setBluetoothAvailable(available);
 		// eslint-disable-next-line no-console
 		console.log('[Printer] Status ketersediaan modul Bluetooth', { available });
+		// eslint-disable-next-line no-console
+		console.log('[Printer] Ringkasan awal saat membuka layar AdjustPrinter', {
+			platform: Platform.OS,
+			moduleAvailable: available,
+			bluetoothEnabledInitial: bluetoothEnabled,
+			connectedDeviceInitial: connectedDevice
+				? {
+					name: connectedDevice.name,
+					address: connectedDevice.address,
+				}
+				: null,
+		});
 		
 		if (available) {
 			// eslint-disable-next-line no-console
@@ -541,25 +553,6 @@ export function AdjustPrinter() {
 							<Text style={styles.buttonText}>Refresh</Text>
 						)}
 					</Pressable>
-				</View>
-				{/* Status ringkas Bluetooth & koneksi untuk membantu debugging */}
-				<View style={styles.statusRow}>
-					<Text style={styles.statusLabel}>Status modul:</Text>
-					<Text style={styles.statusValue}>
-						{bluetoothAvailable ? 'Tersedia' : 'Tidak tersedia (perlu rebuild native)'}
-					</Text>
-				</View>
-				<View style={styles.statusRow}>
-					<Text style={styles.statusLabel}>Bluetooth:</Text>
-					<Text style={styles.statusValue}>
-						{bluetoothEnabled ? 'Aktif' : 'Nonaktif'}
-					</Text>
-				</View>
-				<View style={styles.statusRow}>
-					<Text style={styles.statusLabel}>Perangkat terhubung:</Text>
-					<Text style={styles.statusValue}>
-						{connectedDevice ? connectedDevice.name || connectedDevice.address : 'Tidak ada'}
-					</Text>
 				</View>
 
 				{!bluetoothAvailable && (
