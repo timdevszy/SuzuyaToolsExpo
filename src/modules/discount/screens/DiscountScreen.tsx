@@ -19,6 +19,7 @@ export function Discount() {
 	const navigation = useNavigation<any>();
 	const {
 		lastScan,
+		scans,
 		printerConfigured,
 		discountConfigured,
 		setDiscountConfigured,
@@ -74,20 +75,31 @@ export function Discount() {
 		{ id: 'scan-product', label: 'Scan Product' },
 	];
 
+	const hasScans = scans && scans.length > 0;
+
 	return (
 		<View style={styles.container}>
 			<View style={styles.emptyState}>
-				<SectionCard style={styles.summaryCard}>
-					{!lastScan && (
-						<>
-							<Text style={styles.emptyStateTitle}>Discount Index</Text>
-							<Text style={styles.emptyStateSubtitle}>
-								Kelola printer, diskon, dan pemindaian produk dari logo ( + ) di bawah.
-							</Text>
-						</>
-					)}
-					{lastScan && <LastScannedSummary lastScan={lastScan} />}
-				</SectionCard>
+				{!hasScans && (
+					<SectionCard style={styles.summaryCard}>
+						<Text style={styles.emptyStateTitle}>Discount Index</Text>
+						<Text style={styles.emptyStateSubtitle}>
+							Kelola printer, diskon, dan pemindaian produk dari logo ( + ) di bawah.
+						</Text>
+					</SectionCard>
+				)}
+				{hasScans &&
+					scans.map((scan, index) => (
+						<SectionCard
+							key={`${scan.scannedAt}-${index}`}
+							style={[
+								styles.summaryCard,
+								index > 0 ? { marginTop: 16 } : null,
+							]}
+						>
+							<LastScannedSummary lastScan={scan} />
+						</SectionCard>
+					))}
 			</View>
 
 			{menuVisible && (
