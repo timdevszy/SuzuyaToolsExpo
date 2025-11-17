@@ -26,8 +26,9 @@ type PrinterDevice = {
 	device?: BluetoothDevice;
 };
 
-// Check if Bluetooth module is available
+// Check if Bluetooth module is available (Android only)
 const isBluetoothAvailable = () => {
+	if (Platform.OS !== 'android') return false;
 	return RNBluetoothClassic && typeof RNBluetoothClassic.isBluetoothEnabled === 'function';
 };
 
@@ -95,10 +96,17 @@ export function AdjustPrinter() {
 	}, []);
 
 	useEffect(() => {
-		// Check if Bluetooth module is available
+		// On iOS, this screen is view-only with a message; Bluetooth is Android-only
+		if (Platform.OS !== 'android') {
+			setBluetoothAvailable(false);
+			setBluetoothEnabled(false);
+			return;
+		}
+
+		// Check if Bluetooth module is available (Android)
 		const available = isBluetoothAvailable();
 		setBluetoothAvailable(available);
-		
+
 		if (available) {
 			checkBluetoothEnabled();
 			initializeConnectedDevice();

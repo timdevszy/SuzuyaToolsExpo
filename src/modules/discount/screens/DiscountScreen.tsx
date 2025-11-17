@@ -7,6 +7,7 @@ import {
 	TextInput,
 	View,
 	Alert,
+	Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDiscount } from '../state/DiscountContext';
@@ -36,6 +37,13 @@ export function Discount() {
 	const handleMenuAction = (action: string) => {
 		setMenuVisible(false);
 		if (action === 'adjust-printer') {
+			if (Platform.OS === 'ios') {
+				Alert.alert(
+					'Belum didukung di iOS',
+					'Pengaturan printer Bluetooth saat ini hanya tersedia di perangkat Android.'
+				);
+				return;
+			}
 			navigation.navigate('AdjustPrinter');
 		} else if (action === 'adjust-discount') {
 			if (!printerConfigured) {
