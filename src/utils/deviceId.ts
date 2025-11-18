@@ -4,7 +4,7 @@ let cachedId: string | null = null;
 let ApplicationRef: any | null | undefined;
 let FileSystemRef: any | null | undefined;
 
-// Simple random string generator that works in React Native without crypto
+// Generator string random sederhana (64 char hex) yang aman dipakai di React Native tanpa crypto
 function generateRandomId(): string {
 	const chars = '0123456789abcdef';
 	let result = '';
@@ -14,9 +14,11 @@ function generateRandomId(): string {
 	return result;
 }
 
+// Fungsi untuk mendapatkan referensi ke modul expo-application
 function getApplication() {
 	if (ApplicationRef !== undefined) return ApplicationRef;
 	try {
+		// Lazy require expo-application supaya file ini tetap aman dipakai di luar Expo
 		// eslint-disable-next-line global-require, import/no-extraneous-dependencies
 		ApplicationRef = require('expo-application');
 	} catch {
@@ -25,9 +27,11 @@ function getApplication() {
 	return ApplicationRef;
 }
 
+// Fungsi untuk mendapatkan referensi ke modul expo-file-system
 function getFileSystem() {
 	if (FileSystemRef !== undefined) return FileSystemRef;
 	try {
+		// Lazy require expo-file-system untuk menyimpan device_id secara persisten
 		// eslint-disable-next-line global-require, import/no-extraneous-dependencies
 		FileSystemRef = require('expo-file-system');
 	} catch {
@@ -36,25 +40,36 @@ function getFileSystem() {
 	return FileSystemRef;
 }
 
-// For testing: allow manual override of device ID
+// Untuk testing: izinkan override device ID secara manual
 let manualDeviceId: string | null = null;
 
+// Fungsi untuk mengatur device ID secara manual
 export function setManualDeviceId(id: string | null) {
 	manualDeviceId = id;
 	cachedId = id;
 }
 
+// Fungsi untuk mendapatkan device ID
 export async function getDeviceId(): Promise<string> {
-	// Check manual override first (for testing)
+	// Urutan prioritas pengambilan device_id:
+	// 1) manual override (untuk testing)
+	// 2) ID resmi dari expo-application (iOS/Android)
+	// 3) File persist di expo-file-system
+	// 4) ID random in-memory (fallback terakhir)
+
+	// 1) Cek manual override terlebih dahulu (untuk testing)
 	if (manualDeviceId) {
 		cachedId = manualDeviceId;
 		return manualDeviceId;
 	}
 	if (cachedId) return cachedId;
+
+	// 2) Coba ambil ID resmi dari expo-application
 	try {
 		const Application = getApplication();
 		if (Application) {
 			if (Platform.OS === 'ios') {
+				// Coba ambil ID untuk vendor iOS
 				if (typeof Application.getIosIdForVendorAsync === 'function') {
 					const id = await Application.getIosIdForVendorAsync();
 					if (id) {
@@ -63,7 +78,7 @@ export async function getDeviceId(): Promise<string> {
 					}
 				}
 			} else if (Platform.OS === 'android') {
-				// androidId is a string or null
+				// Coba ambil ID Android
 				const id: string | null | undefined = Application.androidId;
 				if (id) {
 					cachedId = id;
@@ -72,9 +87,10 @@ export async function getDeviceId(): Promise<string> {
 			}
 		}
 	} catch {
-		// ignore and fallback
+		// Jika gagal, lanjut ke fallback berikutnya
 	}
-	// Persistent fallback via expo-file-system: store a UUID in app documents
+
+	// 3) Fallback persisten via expo-file-system: simpan ID di file dokumen app
 	try {
 		const FileSystem = getFileSystem();
 		const dir: string | undefined = FileSystem?.documentDirectory;
@@ -84,8 +100,9 @@ export async function getDeviceId(): Promise<string> {
 			if (info?.exists) {
 				const content = await FileSystem.readAsStringAsync(filePath);
 				if (content) {
-					cachedId = content.trim();
-					return cachedId;
+					const trimmed = content.trim();
+					cachedId = trimmed;
+					return trimmed;
 				}
 			}
 			const newId = generateRandomId();
@@ -96,9 +113,10 @@ export async function getDeviceId(): Promise<string> {
 	} catch {
 		// ignore and use volatile fallback
 	}
-	// Volatile fallback: session random ID (as last resort)
-	cachedId = generateRandomId();
-	return cachedId;
+	// 4) Fallback terakhir: ID random hanya berlaku di sesi ini (tidak persisten)
+	const fallback = generateRandomId();
+	cachedId = fallback;
+	return fallback;
 }
 
 
