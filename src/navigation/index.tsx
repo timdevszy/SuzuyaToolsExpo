@@ -23,12 +23,50 @@ import { ScanProduct } from '../modules/discount/screens/ScanProductScreen';
 import { Discount } from '../modules/discount/screens/DiscountScreen';
 import { NotFound } from './screens/NotFound/NotFound';
 
+function OutletHeaderRight() {
+  const { defaultOutlet } = useAuth();
+  const outletCode = defaultOutlet || '—';
+
+  return (
+    <View
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+        backgroundColor: '#e5f0ff',
+        borderWidth: 1,
+        borderColor: '#bfdbfe',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 12,
+      }}
+    >
+      <View
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: '#22c55e',
+          marginRight: 6,
+        }}
+      />
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: '600',
+          color: '#1d4ed8',
+        }}
+      >
+        {String(outletCode)}
+      </Text>
+    </View>
+  );
+}
+
 function DiscountHeaderRight() {
   const { scans } = useDiscount();
-  const { defaultOutlet } = useAuth();
   const count = scans.length;
   const showPrintAll = count > 1;
-  const outletCode = defaultOutlet || '—';
 
   return (
     <View
@@ -36,40 +74,9 @@ function DiscountHeaderRight() {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginRight: 12,
       }}
     >
-      <View
-        style={{
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          borderRadius: 999,
-          backgroundColor: '#e5f0ff',
-          borderWidth: 1,
-          borderColor: '#bfdbfe',
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: '#22c55e',
-            marginRight: 6,
-          }}
-        />
-        <Text
-          style={{
-            fontSize: 11,
-            fontWeight: '600',
-            color: '#1d4ed8',
-          }}
-        >
-          {String(outletCode)}
-        </Text>
-      </View>
+      <OutletHeaderRight />
       {showPrintAll && (
         <View
           style={{
@@ -205,6 +212,7 @@ const RootStack = createNativeStackNavigator({
       screen: ScanProduct,
       options: {
         title: 'Scan Product',
+        headerRight: () => <OutletHeaderRight />,
       },
     },
     NotFound: {

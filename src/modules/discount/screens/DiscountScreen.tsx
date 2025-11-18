@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import {
 	Modal,
 	Pressable,
+	ScrollView,
 	StyleSheet,
 	Text,
 	TextInput,
 	View,
 	Alert,
 	Platform,
+	KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDiscount } from '../state/DiscountContext';
+import { useAuth } from '../../../auth/AuthContext';
 import { SectionCard } from '../../../ui/components/SectionCard';
 import { AppButton } from '../../../ui/components/AppButton';
 import { LastScannedSummary } from '../components/LastScannedSummary';
@@ -23,13 +26,135 @@ export function Discount() {
 		printerConfigured,
 		discountConfigured,
 		setDiscountConfigured,
+		removeScan,
 	} = useDiscount();
+	const { username, uuid } = useAuth();
 	const [menuVisible, setMenuVisible] = useState(false);
 	const [adjustModalVisible, setAdjustModalVisible] = useState(false);
-	const [activeDiscountPercent, setActiveDiscountPercent] = useState('10');
+	const [activeDiscountPercent, setActiveDiscountPercent] = useState('0');
 	const [activeDescription, setActiveDescription] = useState('');
 	const [draftDiscountPercent, setDraftDiscountPercent] = useState(activeDiscountPercent);
 	const [draftDescription, setDraftDescription] = useState(activeDescription);
+
+	const handleDiscountPercentChange = (value: string) => {
+		const numericOnly = value.replace(/[^0-9]/g, '');
+		if (numericOnly.length === 0) {
+			setDraftDiscountPercent('');
+			return;
+		}
+
+		const normalized = numericOnly.replace(/^0+/, '');
+		setDraftDiscountPercent(normalized || '');
+	};
+
+	const handleDeleteScan = (scannedAt: string) => {
+		removeScan(scannedAt);
+	};
+
+	const handlePrintScan = async (scan: any) => {
+		if (Platform.OS !== 'android') {
+			Alert.alert('Belum didukung', 'Cetak label saat ini hanya didukung di Android.');
+			return;
+		}
+
+		try {
+			const { default: RNBluetoothClassic } = await import('react-native-bluetooth-classic');
+			const devices = await RNBluetoothClassic.getConnectedDevices();
+			if (!devices || !devices.length) {
+				Alert.alert('Printer belum terhubung', 'Silakan hubungkan printer terlebih dahulu di menu Adjust Printer.');
+				return;
+			}
+
+			const device = devices[0];
+			const data: any = scan.payload || {};
+			const name =
+				data.name_product || data.descript || data.name || 'Produk tanpa nama';
+			const internal =
+				data.internal || data.code_barcode_lama || data.mixcode || data.code_scan || scan.code;
+			const barcodeLama = data.code_barcode_lama || internal || scan.code;
+			const discountSource =
+				data.discount != null
+					? Number(data.discount)
+					: scan.discount != null
+						? Number(scan.discount)
+						: null;
+			const discountPercent =
+				discountSource != null && Number.isFinite(discountSource)
+					? Math.trunc(discountSource)
+					: null;
+			const discountSuffix =
+				discountPercent != null ? String(discountPercent) : null;
+			const barcodeBaru =
+				data.code_barcode_baru ||
+				(barcodeLama && discountSuffix != null
+					? `A${barcodeLama}${discountSuffix}`
+					: scan.code);
+			const hargaAwalRaw =
+				data.harga_awal ?? data.retail_price ?? data.rrtlprc ?? data.harga ?? null;
+			const hargaDiskonRaw =
+				data.harga_discount ?? data.harga_diskon ?? null;
+			const hargaAwal = hargaAwalRaw != null ? Number(hargaAwalRaw) : null;
+			const hargaDiskon = hargaDiskonRaw != null ? Number(hargaDiskonRaw) : null;
+			const qty = data.qty != null ? Number(data.qty) : 1;
+			const uom = data.uomsales || 'PCS';
+
+			let printData = '';
+			printData += '\x1B\x40'; // Initialize
+			printData += '\x1B\x61\x01'; // Center
+
+			if (discountPercent != null) {
+				// Besarkan teks HEMAT XX%
+				printData += '\x1B\x21\x30';
+				printData += `HEMAT ${discountPercent}%\n`;
+				printData += '\x1B\x21\x00';
+			}
+
+			printData += `${name}\n`;
+			printData += `Qty: ${qty} ${uom}\n`;
+
+			if (barcodeBaru) {
+				// Barcode Code128: gunakan fungsi 73 (0x49) dengan panjang eksplisit
+				const barcodeContent = String(barcodeBaru);
+				const barcodeLengthChar = String.fromCharCode(barcodeContent.length);
+				// Sedikit perbesar ukuran barcode (tinggi dan ketebalan garis)
+				printData += '\x1D\x68\x50'; // GS h 80 dot tinggi
+				printData += '\x1D\x77\x03'; // GS w 3 module width
+				printData += '\x1D\x6B\x49';
+				printData += barcodeLengthChar + barcodeContent;
+				printData += '\n';
+				// Tampilkan kode barcode sebagai teks di bawah gambar barcode
+				printData += `${barcodeContent}\n`;
+			}
+			// Baris harga langsung mengikuti kode barcode (tanpa extra blank line berlebih)
+
+			// Harga dalam satu baris
+			printData += '\x1B\x61\x01'; // Center align
+			if (hargaAwal != null && hargaDiskon != null) {
+				printData += 'Harga: ';
+				printData += '\x1B\x2D\x01';
+				printData += `Rp ${hargaAwal.toLocaleString('id-ID')}`;
+				printData += '\x1B\x2D\x00';
+				printData += ' ';
+				printData += `Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
+			} else if (hargaAwal != null) {
+				// Fallback jika hanya harga awal yang tersedia
+				printData += 'Harga: ';
+				printData += '\x1B\x2D\x01';
+				printData += `Rp ${hargaAwal.toLocaleString('id-ID')}`;
+				printData += '\x1B\x2D\x00';
+				printData += '\n';
+			} else if (hargaDiskon != null) {
+				// Fallback jika hanya harga diskon yang tersedia
+				printData += `Harga: Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
+			}
+
+			printData += '\x0A\x0A';
+			await device.write(printData);
+			Alert.alert('Berhasil', 'Data cetak dikirim ke printer.');
+		} catch (error: any) {
+			Alert.alert('Gagal cetak', error?.message || 'Terjadi kesalahan saat mengirim data ke printer.');
+		}
+	};
 
 	const toggleMenu = () => {
 		setMenuVisible((prev) => !prev);
@@ -51,8 +176,8 @@ export function Discount() {
 				Alert.alert('Printer belum diatur', 'Silakan atur printer terlebih dahulu sebelum mengatur diskon.');
 				return;
 			}
-			setDraftDiscountPercent(activeDiscountPercent);
-			setDraftDescription(activeDescription);
+			setDraftDiscountPercent('');
+			setDraftDescription('');
 			setAdjustModalVisible(true);
 		} else if (action === 'scan-product') {
 			if (!printerConfigured) {
@@ -79,7 +204,11 @@ export function Discount() {
 
 	return (
 		<View style={styles.container}>
-			<View style={styles.emptyState}>
+			<ScrollView
+				style={styles.scroll}
+				contentContainerStyle={styles.emptyState}
+				keyboardShouldPersistTaps="handled"
+			>
 				{!hasScans && (
 					<SectionCard style={styles.summaryCard}>
 						<Text style={styles.emptyStateTitle}>Discount Index</Text>
@@ -97,10 +226,14 @@ export function Discount() {
 								index > 0 ? { marginTop: 16 } : null,
 							]}
 						>
-							<LastScannedSummary lastScan={scan} />
+							<LastScannedSummary
+								lastScan={scan}
+								onPrint={() => handlePrintScan(scan)}
+								onDelete={() => handleDeleteScan(scan.scannedAt)}
+							/>
 						</SectionCard>
 					))}
-			</View>
+			</ScrollView>
 
 			{menuVisible && (
 				<View style={styles.menuContainer}>
@@ -134,52 +267,84 @@ export function Discount() {
 				onRequestClose={() => setAdjustModalVisible(false)}
 			>
 				<View style={styles.modalBackdrop}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>Diskon / Harga Spesial (%)</Text>
-						<TextInput
-							value={draftDiscountPercent}
-							onChangeText={setDraftDiscountPercent}
-							keyboardType="numeric"
-							placeholder="Contoh: 10"
-							style={styles.modalInput}
-							maxLength={6}
-							returnKeyType="done"
-						/>
-						<Text style={styles.modalLabel}>Keterangan</Text>
-						<TextInput
-							value={draftDescription}
-							onChangeText={setDraftDescription}
-							placeholder="Tuliskan catatan promo (opsional)"
-							style={[styles.modalInput, styles.modalTextarea]}
-							multiline
-							numberOfLines={3}
-							textAlignVertical="top"
-						/>
-						<View style={styles.modalActions}>
-							<AppButton
-								variant="outline"
-								title="Batal"
-								onPress={() => setAdjustModalVisible(false)}
-								style={styles.modalButton}
-								textStyle={styles.modalButtonSecondaryText}
+					<KeyboardAvoidingView
+						style={styles.keyboardAvoiding}
+						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+					>
+						<View style={styles.modalContent}>
+							<Text style={styles.modalTitle}>Diskon / Harga Spesial (%)</Text>
+							<TextInput
+								value={draftDiscountPercent}
+								onChangeText={handleDiscountPercentChange}
+								keyboardType="numeric"
+								placeholder="Contoh: 10"
+								style={styles.modalInput}
+								maxLength={6}
+								returnKeyType="done"
 							/>
-							<AppButton
-								variant="primary"
-								title="Simpan"
-								onPress={() => {
-									setActiveDiscountPercent(
-										draftDiscountPercent.trim() === ''
-											? '0'
-											: draftDiscountPercent.trim()
-									);
-									setActiveDescription(draftDescription.trim());
-									setDiscountConfigured(true);
-									setAdjustModalVisible(false);
-								}}
-								style={styles.modalButton}
+							<Text style={styles.modalLabel}>Keterangan</Text>
+							<TextInput
+								value={draftDescription}
+								onChangeText={setDraftDescription}
+								placeholder="Tuliskan catatan promo (opsional)"
+								style={[styles.modalInput, styles.modalTextarea]}
+								multiline
+								numberOfLines={3}
+								textAlignVertical="top"
 							/>
+							<View style={styles.modalActions}>
+								<AppButton
+									variant="outline"
+									title="Batal"
+									onPress={() => setAdjustModalVisible(false)}
+									style={styles.modalButton}
+									textStyle={styles.modalButtonSecondaryText}
+								/>
+								<AppButton
+									variant="primary"
+									title="Simpan"
+									onPress={() => {
+										const percentRaw = draftDiscountPercent.trim();
+										const descriptionRaw = draftDescription.trim();
+
+										if (!percentRaw) {
+											Alert.alert('Diskon wajib diisi', 'Silakan isi persentase diskon.');
+											return;
+										}
+
+										if (/^0\d+/.test(percentRaw)) {
+											Alert.alert('Diskon tidak valid', 'Persentase diskon tidak boleh diawali angka 0.');
+											return;
+										}
+
+										const percentNumber = Number(percentRaw);
+										if (!Number.isFinite(percentNumber) || percentNumber < 0) {
+											Alert.alert('Diskon tidak valid', 'Isi persentase diskon dengan angka yang benar.');
+											return;
+										}
+
+										if (!descriptionRaw) {
+											Alert.alert('Keterangan wajib diisi', 'Silakan isi keterangan diskon.');
+											return;
+										}
+
+										setActiveDiscountPercent(percentRaw);
+										setActiveDescription(descriptionRaw);
+										setDiscountConfigured(true);
+										console.log('DISCOUNT CONFIG LOG', {
+											percent: percentRaw,
+											description: descriptionRaw,
+											configuredAt: new Date().toISOString(),
+											configuredByUsername: username,
+											configuredByUuid: uuid,
+										});
+										setAdjustModalVisible(false);
+									}}
+									style={styles.modalButton}
+								/>
+							</View>
 						</View>
-					</View>
+					</KeyboardAvoidingView>
 				</View>
 			</Modal>
 		</View>
@@ -191,12 +356,15 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: '#f5f5f5',
 	},
-	emptyState: {
+	scroll: {
 		flex: 1,
+	},
+	emptyState: {
 		alignItems: 'stretch',
 		justifyContent: 'flex-start',
 		paddingHorizontal: 16,
 		paddingTop: 16,
+		paddingBottom: 48,
 	},
 	emptyStateTitle: {
 		fontSize: 20,
@@ -304,6 +472,12 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 		paddingHorizontal: 24,
+	},
+	keyboardAvoiding: {
+		flex: 1,
+		width: '100%',
+		justifyContent: 'center',
+		alignItems: 'center',
 	},
 	modalContent: {
 		width: '100%',

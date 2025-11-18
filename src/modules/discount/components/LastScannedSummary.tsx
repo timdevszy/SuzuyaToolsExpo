@@ -1,23 +1,44 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import type { ScannedProductData } from '../state/DiscountContext';
 import { Code128Barcode } from './Code128Barcode';
 
 export type LastScannedSummaryProps = {
 	lastScan: ScannedProductData;
+	onPrint?: () => void;
+	onDelete?: () => void;
 };
 
-export function LastScannedSummary({ lastScan }: LastScannedSummaryProps) {
+export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedSummaryProps) {
 	const data: any = lastScan.payload || {};
 
-	// Nama & identitas
+	// Nama & identitas produk (fallback ke beberapa field jika tidak ada)
 	const name =
 		data.name_product || data.descript || data.name || 'Produk tanpa nama';
+	// Kode internal / kode lama yang menjadi dasar pembuatan barcode baru
 	const internal =
 		data.internal || data.code_barcode_lama || data.mixcode || data.code_scan || lastScan.code;
+	// code_barcode_lama dari payload (jika ada), fallback ke internal atau kode yang discan
 	const barcodeLama = data.code_barcode_lama || internal || lastScan.code;
+	// Persentase diskon yang akan ditempel di belakang barcode baru
+	const discountSource =
+		data.discount != null
+			? Number(data.discount)
+			: lastScan.discount != null
+			?
+				Number(lastScan.discount)
+				: null;
+	const discountSuffix =
+		discountSource != null && Number.isFinite(discountSource)
+			? String(Math.trunc(discountSource))
+			: null;
+	// Barcode baru mengikuti pola A{barcode_lama}{diskon}, misal A0021777010250
+	// Angka diskon tidak memakai nol di depan (contoh: 5 bukan 05)
 	const barcodeBaru =
-		data.code_barcode_baru || (barcodeLama ? `A${barcodeLama}50` : lastScan.code);
+		data.code_barcode_baru ||
+		(barcodeLama && discountSuffix != null
+			? `A${barcodeLama}${discountSuffix}`
+			: lastScan.code);
 
 	// Harga & diskon
 	const hargaAwalRaw =
@@ -110,12 +131,18 @@ export function LastScannedSummary({ lastScan }: LastScannedSummaryProps) {
 						</View>
 					)}
 					<View style={styles.actionsRow}>
-						<View style={[styles.iconButton, styles.iconButtonPrimary]}>
+						<Pressable
+							style={[styles.iconButton, styles.iconButtonPrimary]}
+							onPress={onPrint}
+						>
 							<Text style={styles.iconButtonText}>Print</Text>
-						</View>
-						<View style={[styles.iconButton, styles.iconButtonDanger]}>
+						</Pressable>
+						<Pressable
+							style={[styles.iconButton, styles.iconButtonDanger]}
+							onPress={onDelete}
+						>
 							<Text style={styles.iconButtonText}>Hapus</Text>
-						</View>
+						</Pressable>
 					</View>
 				</View>
 			</View>
@@ -126,6 +153,7 @@ export function LastScannedSummary({ lastScan }: LastScannedSummaryProps) {
 const styles = StyleSheet.create({
 	root: {
 		width: '100%',
+		paddingBottom: 12,
 	},
 	label: {
 		fontSize: 13,

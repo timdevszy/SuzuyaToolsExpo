@@ -27,7 +27,7 @@ function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, ms =
 
 export function Login(_: Props) {
 	const navigation = useNavigation<any>();
-	const { setToken, setDefaultOutlet } = useAuth();
+	const { setToken, setDefaultOutlet, setUsername: setAuthUsername, setUuid } = useAuth();
 	const [username, setUsername] = useState('billy');
 	const [password, setPassword] = useState('12345678');
 	const [loading, setLoading] = useState(false);
@@ -99,7 +99,7 @@ export function Login(_: Props) {
 			// eslint-disable-next-line no-console
 			console.log('Login response body:', data ?? text);
 			if (response.ok) {
-				// Store token if present
+				// Store token and user info if present
 				const firstResult = data?.results?.[0] ?? null;
 				const token = firstResult?.token ?? null;
 				if (token) {
@@ -107,6 +107,10 @@ export function Login(_: Props) {
 				}
 				const outletFromApi = firstResult?.default_outlet ?? null;
 				setDefaultOutlet(outletFromApi);
+				const usernameFromApi = firstResult?.username ?? null;
+				const uuidFromApi = firstResult?.uuid ?? null;
+				setAuthUsername(usernameFromApi);
+				setUuid(uuidFromApi);
 				try {
 					navigation.reset({
 						index: 0,

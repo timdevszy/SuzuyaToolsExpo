@@ -2,17 +2,21 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	ActivityIndicator,
 	Linking,
+	Modal,
 	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
 	Text,
 	TextInput,
+	TouchableOpacity,
+	Vibration,
 	View,
 } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { Camera, CameraView } from 'expo-camera';
 import { useApiClient } from '../../../api/client';
+import { useAuth } from '../../../auth/AuthContext';
 import { useDiscount } from '../state/DiscountContext';
 import { scanProductApi } from '../api/discountApi';
 import { SectionCard } from '../../../ui/components/SectionCard';
@@ -29,6 +33,7 @@ export function ScanProduct() {
 	const route = useRoute();
 	const params = route.params as RouteParams | undefined;
 	const { setLastScan } = useDiscount();
+	const { username, uuid, defaultOutlet: authOutlet } = useAuth();
 	const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
 	const [scanned, setScanned] = useState(false);
@@ -39,6 +44,7 @@ export function ScanProduct() {
 	const [loading, setLoading] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [isActive, setIsActive] = useState(true);
+	const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
 
 	const defaultOutlet = params?.defaultOutlet ?? '2018';
 	const defaultDiscount = params?.defaultDiscountPercent ?? '0';
@@ -69,6 +75,7 @@ export function ScanProduct() {
 			if (!trimmed) return;
 
 			setLoading(true);
+			setIsActive(false);
 			setErrorMessage(null);
 			setProductPayload(null);
 			setRawResponse(null);
@@ -112,7 +119,19 @@ export function ScanProduct() {
 								discount: normalizedDiscount,
 								payload: product,
 								scannedAt: new Date().toISOString(),
+								scannedByUsername: username || undefined,
+								scannedByUuid: uuid || undefined,
 							});
+							console.log('SCAN LOG', {
+								code: trimmed,
+								outlet: defaultOutlet,
+								discount: normalizedDiscount,
+								scannedAt: new Date().toISOString(),
+								scannedByUsername: username,
+								scannedByUuid: uuid,
+							});
+							Vibration.vibrate(40);
+							setIsSuccessModalVisible(true);
 						}
 					}
 				}
@@ -122,6 +141,9 @@ export function ScanProduct() {
 				);
 			} finally {
 				setLoading(false);
+				// Setelah satu proses scan selesai (berhasil atau gagal), izinkan scan berikutnya
+				setScanned(false);
+				setIsActive(true);
 			}
 		},
 		[defaultDiscount, defaultOutlet, request]
@@ -202,6 +224,69 @@ export function ScanProduct() {
 		return null;
 	}, [hasPermission]);
 
+	const productSummary = useMemo(() => {
+		if (!productPayload && !lastScannedCode) return null;
+		const data: any = productPayload || {};
+
+		// Nama produk yang ditampilkan di modal ringkasan
+		const name =
+			data.name_product || data.descript || data.name || 'Produk tanpa nama';
+		// Kode internal / kode lama yang menjadi basis barcode baru
+		const internalOrLama =
+			data.internal || data.code_barcode_lama || data.mixcode || data.code_scan || lastScannedCode;
+		// code_barcode_lama dari payload jika ada, fallback ke internal/kode yang discan
+		const barcodeLama = data.code_barcode_lama || internalOrLama || lastScannedCode;
+		const barcodeLamaFromPayload = data.code_barcode_lama || null;
+		const barcodeBaruFromPayload = data.code_barcode_baru || null;
+		// Sumber nilai diskon dari payload, jika tidak ada pakai defaultDiscount yang dikirim dari DiscountScreen
+		const discountSource =
+			data.discount != null
+				? Number(data.discount)
+				: defaultDiscount != null
+				? Number(defaultDiscount)
+				: null;
+		const discountSuffix =
+			discountSource != null && Number.isFinite(discountSource)
+				? String(Math.trunc(discountSource))
+				: null;
+
+		// Ikuti pola barcode baru: A{barcode_lama}{diskon}, contoh A0021777010250
+		// Angka diskon tidak memakai nol di depan jika satu digit (5 -> "5", bukan "05")
+		let barcodeBaru: string | null = null;
+		if (barcodeBaruFromPayload) {
+			barcodeBaru = barcodeBaruFromPayload;
+		} else if (barcodeLamaFromPayload && discountSuffix != null) {
+			barcodeBaru = `A${barcodeLamaFromPayload}${discountSuffix}`;
+		} else if (barcodeLama && discountSuffix != null) {
+			barcodeBaru = `A${barcodeLama}${discountSuffix}`;
+		}
+
+		const hargaAwalRaw =
+			data.harga_awal ?? data.retail_price ?? data.rrtlprc ?? data.harga ?? null;
+		const hargaDiskonRaw = data.harga_discount ?? data.harga_diskon ?? null;
+		const discountPercentRaw = data.discount ?? null;
+		const hargaAwal = hargaAwalRaw != null ? Number(hargaAwalRaw) : null;
+		const hargaDiskon = hargaDiskonRaw != null ? Number(hargaDiskonRaw) : null;
+
+		let discountPercent: number | null = null;
+		if (typeof discountPercentRaw === 'number') {
+			discountPercent = discountPercentRaw;
+		} else if (hargaAwal && hargaDiskon) {
+			const diff = hargaAwal - hargaDiskon;
+			if (diff > 0) {
+				discountPercent = Math.round((diff / hargaAwal) * 100);
+			}
+		}
+
+		return {
+			name,
+			code: barcodeBaru || internalOrLama,
+			hargaAwal,
+			hargaDiskon,
+			discountPercent,
+		};
+	}, [lastScannedCode, productPayload]);
+
 	const canUseScanner = hasPermission === true && isActive;
 
 	return (
@@ -209,12 +294,12 @@ export function ScanProduct() {
 			<SectionCard style={styles.section}>
 				<View style={styles.sectionHeader}>
 					<Text style={styles.sectionTitle}>Scanner Produk</Text>
-					{defaultDiscount !== '0' && (
+					<View style={styles.headerBadgeRow}>
 						<View style={styles.discountBadge}>
 							<Text style={styles.discountBadgeLabel}>Diskon Aktif</Text>
 							<Text style={styles.discountBadgeValue}>{defaultDiscount}%</Text>
 						</View>
-					)}
+					</View>
 				</View>
 				<Text style={styles.sectionSubtitle}>
 					Arahkan barcode ke kamera atau masukkan kode secara manual.
@@ -225,22 +310,23 @@ export function ScanProduct() {
 						<CameraView
 							style={styles.scanner}
 							facing="back"
-							onBarcodeScanned={scanned || !isActive ? undefined : handleBarCodeScanned}
+							onBarcodeScanned={!isActive ? undefined : handleBarCodeScanned}
 						/>
 					) : (
 						<View style={styles.permissionFallback}>{permissionContent}</View>
 					)}
 				</View>
-
-				<View style={styles.infoCard}>
-					<Text style={styles.infoLabel}>Terakhir dipindai</Text>
-					<Text style={styles.infoValue}>{lastScannedCode ?? 'Belum ada'}</Text>
-				</View>
+				{loading && (
+					<View style={styles.scannerLoadingRow}>
+						<ActivityIndicator size="small" color="#007AFF" />
+						<Text style={styles.scannerLoadingText}>Mengatur diskon...</Text>
+					</View>
+				)}
 
 				<View style={styles.actionRow}>
 					<AppButton
 						variant="outline"
-						title={scanned ? 'Scan Lagi' : 'Reset'}
+						title="Reset"
 						onPress={resetScannerState}
 						style={{ flex: 1 }}
 					/>
@@ -265,56 +351,70 @@ export function ScanProduct() {
 				<AppButton title="Cari Produk" onPress={handleManualSearch} />
 			</SectionCard>
 
-			<SectionCard style={styles.section}>
-				<Text style={styles.sectionTitle}>Hasil</Text>
-				{loading && (
-					<View style={styles.feedbackRow}>
-						<ActivityIndicator size="small" color="#007AFF" />
-						<Text style={styles.feedbackText}>Memuat data produk...</Text>
-					</View>
-				)}
-				{errorMessage && !loading && (
-					<View style={[styles.feedbackRow, styles.feedbackError]}>
-						<Text style={[styles.feedbackText, styles.feedbackErrorText]}>{errorMessage}</Text>
-					</View>
-				)}
-				{productPayload && !loading && (
-					<View style={styles.resultCard}>
-						{Object.entries(productPayload).map(([key, value]) => (
-							<View key={key} style={styles.resultRow}>
-								<Text style={styles.resultLabel}>{key}</Text>
-								<Text style={styles.resultValue}>
-									{value === null || value === undefined
-										? '-'
-										: typeof value === 'object'
-										? JSON.stringify(value)
-										: String(value)}
+			<Modal
+				visible={isSuccessModalVisible}
+				transparent
+				animationType="fade"
+				onRequestClose={() => setIsSuccessModalVisible(false)}
+			>
+				<View style={styles.modalBackdrop}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>Produk berhasil discan</Text>
+						{productSummary ? (
+							<View style={styles.modalBody}>
+								<Text style={styles.modalProductName} numberOfLines={2}>
+									{productSummary.name}
 								</Text>
+								{productSummary.code && (
+									<Text style={styles.modalProductCode}>
+										Kode: {productSummary.code}
+									</Text>
+								)}
+								{productSummary.hargaAwal != null && (
+									<Text style={styles.modalPriceLine}>
+										Harga awal: Rp{' '}
+										{productSummary.hargaAwal.toLocaleString('id-ID')}
+									</Text>
+								)}
+								{productSummary.hargaDiskon != null && (
+									<Text style={styles.modalPriceLine}>
+										Harga diskon: Rp{' '}
+										{productSummary.hargaDiskon.toLocaleString('id-ID')}
+									</Text>
+								)}
+								{productSummary.discountPercent != null && (
+									<Text style={styles.modalDiscountLine}>
+										Diskon: {productSummary.discountPercent}%
+									</Text>
+								)}
 							</View>
-						))}
+						) : (
+							<Text style={styles.modalMessage}>
+								Produk berhasil discan dan diskon sudah disetting.
+							</Text>
+						)}
+						<View style={styles.modalActions}>
+							<TouchableOpacity
+									style={styles.modalButton}
+									onPress={() => {
+										setIsSuccessModalVisible(false);
+									}}
+								>
+									<Text style={styles.modalButtonText}>OK</Text>
+								</TouchableOpacity>
+						</View>
 					</View>
-				)}
-				{rawResponse && !productPayload && !loading && !errorMessage && (
-					<View style={styles.resultCard}>
-						<Text style={styles.resultLabel}>Respon</Text>
-						<Text style={styles.rawJson}>
-							{JSON.stringify(rawResponse, null, 2)}
-						</Text>
-					</View>
-				)}
-				{!loading && !productPayload && !rawResponse && !errorMessage && (
-					<Text style={styles.placeholderText}>
-						Belum ada data produk. Scan barcode atau cari secara manual.
-					</Text>
-				)}
-			</SectionCard>
+				</View>
+			</Modal>
 		</ScrollView>
 	);
 }
 
 const styles = StyleSheet.create({
 	container: {
-		padding: 16,
+		paddingHorizontal: 16,
+		paddingTop: 16,
+		paddingBottom: 64,
 		gap: 16,
 		backgroundColor: '#f5f5f5',
 	},
@@ -345,6 +445,11 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		gap: 12,
 	},
+	headerBadgeRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
 	discountBadge: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -366,6 +471,28 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		fontWeight: '700',
 		color: '#ffffff',
+	},
+	outletBadge: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 999,
+		backgroundColor: '#111827',
+		marginTop: 4,
+	},
+	outletBadgeLabel: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#e5e7eb',
+		marginRight: 6,
+		textTransform: 'uppercase',
+		letterSpacing: 0.4,
+	},
+	outletBadgeValue: {
+		fontSize: 14,
+		fontWeight: '700',
+		color: '#f9fafb',
 	},
 	scannerWrapper: {
 		width: '100%',
@@ -488,6 +615,16 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: '#1f2933',
 	},
+	scannerLoadingRow: {
+		marginTop: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	scannerLoadingText: {
+		fontSize: 13,
+		color: '#4b5563',
+	},
 	feedbackError: {
 		backgroundColor: '#fee2e2',
 		borderRadius: 10,
@@ -530,5 +667,78 @@ const styles = StyleSheet.create({
 	placeholderText: {
 		fontSize: 14,
 		color: '#6b7280',
+	},
+	modalBackdrop: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.4)',
+		justifyContent: 'center',
+		alignItems: 'center',
+		padding: 24,
+	},
+	modalContent: {
+		backgroundColor: '#fff',
+		borderRadius: 16,
+		padding: 20,
+		width: '100%',
+		maxWidth: 360,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.15,
+		shadowRadius: 12,
+		elevation: 4,
+		gap: 12,
+	},
+	modalTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
+		textAlign: 'center',
+	},
+	modalBody: {
+		marginTop: 4,
+		gap: 4,
+	},
+	modalMessage: {
+		fontSize: 14,
+		color: '#4b5563',
+		textAlign: 'center',
+	},
+	modalProductName: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
+		textAlign: 'center',
+	},
+	modalProductCode: {
+		fontSize: 13,
+		color: '#4b5563',
+		textAlign: 'center',
+	},
+	modalPriceLine: {
+		fontSize: 13,
+		color: '#111827',
+		textAlign: 'center',
+	},
+	modalDiscountLine: {
+		fontSize: 13,
+		color: '#16a34a',
+		fontWeight: '600',
+		textAlign: 'center',
+	},
+	modalActions: {
+		marginTop: 12,
+		flexDirection: 'row',
+		justifyContent: 'center',
+	},
+	modalButton: {
+		paddingHorizontal: 24,
+		paddingVertical: 10,
+		borderRadius: 999,
+		backgroundColor: '#007AFF',
+	},
+	modalButtonText: {
+		color: '#fff',
+		fontSize: 15,
+		fontWeight: '600',
 	},
 });
