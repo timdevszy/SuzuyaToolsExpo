@@ -1,3 +1,4 @@
+// Palet warna utama aplikasi
 export const colors = {
 	primary: '#007AFF',
 	primarySoft: '#E5F0FF',
@@ -10,6 +11,7 @@ export const colors = {
 	dangerSoft: '#FEE2E2',
 };
 
+// Jarak/padding standar dalam satuan pixel
 export const spacing = {
 	xs: 4,
 	sm: 8,
@@ -18,6 +20,7 @@ export const spacing = {
 	xl: 20,
 };
 
+// Radius sudut default untuk komponen (kartu, tombol, dsb.)
 export const radius = {
 	sm: 6,
 	md: 10,
@@ -25,6 +28,7 @@ export const radius = {
 	pill: 999,
 };
 
+// Style teks dasar yang sering dipakai ulang di komponen
 export const typography = {
 	title: {
 		fontSize: 18,

@@ -3,13 +3,16 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import type { ScannedProductData } from '../state/DiscountContext';
 import { Code128Barcode } from './Code128Barcode';
 
+// Komponen ringkasan untuk scan terakhir: info produk + barcode + tombol aksi
 export type LastScannedSummaryProps = {
 	lastScan: ScannedProductData;
-	onPrint?: () => void;
-	onDelete?: () => void;
+	onPrint?: () => void; // dipanggil saat tombol Print ditekan
+	onDelete?: () => void; // dipanggil saat tombol Hapus ditekan
 };
 
+// Komponen ini menampilkan ringkasan produk yang baru saja discan
 export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedSummaryProps) {
+	// Payload mentah dari hasil scan (berdasar struktur data backend)
 	const data: any = lastScan.payload || {};
 
 	// Nama & identitas produk (fallback ke beberapa field jika tidak ada)
@@ -20,7 +23,7 @@ export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedS
 		data.internal || data.code_barcode_lama || data.mixcode || data.code_scan || lastScan.code;
 	// code_barcode_lama dari payload (jika ada), fallback ke internal atau kode yang discan
 	const barcodeLama = data.code_barcode_lama || internal || lastScan.code;
-	// Persentase diskon yang akan ditempel di belakang barcode baru
+	// Persentase diskon yang akan ditempel di belakang barcode baru (ambil dari payload dulu, baru dari lastScan)
 	const discountSource =
 		data.discount != null
 			? Number(data.discount)
@@ -28,6 +31,7 @@ export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedS
 			?
 				Number(lastScan.discount)
 				: null;
+	// Suffix diskon dalam bentuk angka bulat (contoh: 20 dari 20.5, 5 dari 5.0)
 	const discountSuffix =
 		discountSource != null && Number.isFinite(discountSource)
 			? String(Math.trunc(discountSource))
@@ -37,18 +41,23 @@ export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedS
 	const barcodeBaru =
 		data.code_barcode_baru ||
 		(barcodeLama && discountSuffix != null
-			? `A${barcodeLama}${discountSuffix}`
+			? `A${barcodeLama}${discountSuffix}` 
 			: lastScan.code);
 
 	// Harga & diskon
+	// Ambil harga awal dari beberapa kemungkinan field (menyesuaikan struktur data backend)
 	const hargaAwalRaw =
 		data.harga_awal ?? data.retail_price ?? data.rrtlprc ?? data.harga ?? null;
+	// Ambil harga setelah diskon
 	const hargaDiskonRaw =
 		data.harga_discount ?? data.harga_diskon ?? null;
+	// Persentase diskon mentah langsung dari payload (kalau ada)
 	const discountPercentRaw = data.discount ?? null;
+	// Konversi ke number supaya aman dipakai di perhitungan / toLocaleString
 	const hargaAwal = hargaAwalRaw != null ? Number(hargaAwalRaw) : null;
 	const hargaDiskon = hargaDiskonRaw != null ? Number(hargaDiskonRaw) : null;
 
+	// Hitung persentase diskon kalau belum dapat angka yang jelas dari payload
 	let discountPercent: number | null = null;
 	if (typeof discountPercentRaw === 'number') {
 		discountPercent = discountPercentRaw;
@@ -59,14 +68,14 @@ export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedS
 		}
 	}
 
-	// Qty & satuan
+	// Qty & satuan (default 1 PCS kalau tidak ada di payload)
 	const qty = data.qty != null ? Number(data.qty) : 1;
 	const uom = data.uomsales || 'PCS';
 
 	return (
 		<View style={styles.root}>
 			<View style={styles.cardRow}>
-				{/* Kiri: Info produk */}
+				{/* Kiri: Info produk (nama, harga, qty) */}
 				<View style={styles.leftCol}>
 					{internal && (
 						<Text style={styles.internal}>Internal: {internal}</Text>
@@ -103,7 +112,7 @@ export function LastScannedSummary({ lastScan, onPrint, onDelete }: LastScannedS
 					</Text>
 				</View>
 
-				{/* Kanan: barcode visual & aksi */}
+				{/* Kanan: barcode visual & tombol Print/Hapus */}
 				<View style={styles.rightCol}>
 					<View style={styles.barcodeBox}>
 						<Text style={styles.barcodeLabel}>BARCODE</Text>

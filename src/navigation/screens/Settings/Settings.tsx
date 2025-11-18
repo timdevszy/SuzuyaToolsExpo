@@ -1,6 +1,7 @@
 import { Text } from '@react-navigation/elements';
 import { StyleSheet, View } from 'react-native';
 
+// Layar Settings sederhana, nanti bisa diisi pengaturan user/app
 export function Settings() {
   return (
     <View style={styles.container}>
@@ -17,6 +18,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   row: {
+    // Utility style kalau butuh susun item secara horizontal di Settings
     flexDirection: 'row',
     gap: 10,
   },

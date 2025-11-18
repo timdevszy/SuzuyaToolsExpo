@@ -9,6 +9,7 @@ import { Navigation } from './navigation';
 import { AuthProvider } from './auth/AuthContext';
 import { DiscountProvider } from './modules/discount/state/DiscountContext';
 
+// Preload aset gambar yang dipakai di navigasi (ikon tab, dll.)
 Asset.loadAsync([
   ...NavigationAssets,
   require('./assets/newspaper.png'),
@@ -16,6 +17,7 @@ Asset.loadAsync([
   require('./assets/tag.png'),
 ]);
 
+// Tahan SplashScreen sampai navigasi siap
 SplashScreen.preventAutoHideAsync();
 
 const prefix = createURL('/');
@@ -23,9 +25,11 @@ const prefix = createURL('/');
 export function App() {
   const colorScheme = useColorScheme();
 
+  // Pilih tema terang/gelap mengikuti setting sistem
   const theme = colorScheme === 'dark' ? DarkTheme : DefaultTheme
 
   return (
+    // Bungkus app dengan AuthProvider dan DiscountProvider supaya context bisa dipakai di semua screen
     <AuthProvider>
       <DiscountProvider>
         <Navigation
@@ -34,6 +38,7 @@ export function App() {
             enabled: 'auto',
             prefixes: [prefix],
           }}
+          // Sembunyikan SplashScreen setelah navigasi siap
           onReady={() => {
             SplashScreen.hideAsync();
           }}

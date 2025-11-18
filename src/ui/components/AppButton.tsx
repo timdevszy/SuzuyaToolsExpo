@@ -2,17 +2,20 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, ViewStyle, TextStyle } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
 
+// Varian tampilan tombol yang disediakan AppButton
 export type AppButtonVariant = 'primary' | 'outline' | 'danger';
 
+// Props standar untuk AppButton
 export type AppButtonProps = {
-	variant?: AppButtonVariant;
-	title: string;
-	onPress?: () => void;
-	disabled?: boolean;
-	style?: ViewStyle;
-	textStyle?: TextStyle;
+	variant?: AppButtonVariant; // gaya tombol (primary/outline/danger)
+	title: string; // teks yang ditampilkan di tombol
+	onPress?: () => void; // handler saat tombol ditekan
+	disabled?: boolean; // kalau true, tombol non-aktif dan tidak bisa ditekan
+	style?: ViewStyle; // override style container
+	textStyle?: TextStyle; // override style teks
 };
 
+// Tombol reusable dengan beberapa varian gaya untuk dipakai di seluruh app
 export function AppButton({
 	variant = 'primary',
 	title,

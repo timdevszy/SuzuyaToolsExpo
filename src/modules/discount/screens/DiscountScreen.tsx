@@ -36,6 +36,7 @@ export function Discount() {
 	const [draftDiscountPercent, setDraftDiscountPercent] = useState(activeDiscountPercent);
 	const [draftDescription, setDraftDescription] = useState(activeDescription);
 
+	// Normalisasi input diskon: hanya angka, buang leading zero (contoh: "010" -> "10")
 	const handleDiscountPercentChange = (value: string) => {
 		const numericOnly = value.replace(/[^0-9]/g, '');
 		if (numericOnly.length === 0) {
@@ -47,6 +48,7 @@ export function Discount() {
 		setDraftDiscountPercent(normalized || '');
 	};
 
+	// Konfirmasi hapus satu data scan
 	const handleDeleteScan = (scannedAt: string) => {
 		Alert.alert(
 			'Hapus data',
@@ -62,6 +64,7 @@ export function Discount() {
 		);
 	};
 
+	// Cetak satu hasil scan sebagai label diskon lewat printer Bluetooth
 	const handlePrintScan = async (scan: any) => {
 		if (Platform.OS !== 'android') {
 			Alert.alert('Belum didukung', 'Cetak label saat ini hanya didukung di Android.');
@@ -159,6 +162,7 @@ export function Discount() {
 		}
 	};
 
+	// Cetak semua hasil scan secara berurutan
 	const handlePrintAll = async () => {
 		if (!scans || !scans.length) {
 			Alert.alert('Tidak ada data', 'Belum ada produk yang discan untuk dicetak.');
@@ -181,10 +185,12 @@ export function Discount() {
 		}
 	};
 
+	// Toggle buka/tutup menu floating (FAB +)
 	const toggleMenu = () => {
 		setMenuVisible((prev) => !prev);
 	};
 
+	// Aksi saat user pilih item menu di FAB
 	const handleMenuAction = (action: string) => {
 		setMenuVisible(false);
 		if (action === 'adjust-printer') {
@@ -219,6 +225,7 @@ export function Discount() {
 		}
 	};
 
+	// Item menu utama untuk layar ini
 	const menuItems = [
 		{ id: 'adjust-printer', label: 'Adjust Printer' },
 		{ id: 'adjust-discount', label: 'Adjust Discount' },
@@ -234,6 +241,7 @@ export function Discount() {
 				contentContainerStyle={styles.emptyState}
 				keyboardShouldPersistTaps="handled"
 			>
+				{/* State awal ketika belum ada produk yang discan */}
 				{!hasScans && (
 					<SectionCard style={styles.summaryCard}>
 						<Text style={styles.emptyStateTitle}>Discount Index</Text>
@@ -242,8 +250,9 @@ export function Discount() {
 						</Text>
 					</SectionCard>
 				)}
+				{/* Daftar hasil scan, paling baru di atas */}
 				{hasScans &&
-					scans.map((scan, index) => (
+						scans.map((scan, index) => (
 						<SectionCard
 							key={`${scan.scannedAt}-${index}`}
 							style={[
@@ -257,7 +266,8 @@ export function Discount() {
 								onDelete={() => handleDeleteScan(scan.scannedAt)}
 							/>
 						</SectionCard>
-					))}
+						))}
+				{/* Tombol Print All muncul kalau lebih dari satu scan */}
 				{hasScans && scans.length > 1 && (
 					<View style={styles.printAllContainer}>
 						<AppButton
@@ -269,6 +279,7 @@ export function Discount() {
 				)}
 			</ScrollView>
 
+			{/* Menu popover dari FAB (Adjust Printer / Discount / Scan Product) */}
 			{menuVisible && (
 				<View style={styles.menuContainer}>
 					{menuItems.map((item, index) => (
@@ -286,6 +297,7 @@ export function Discount() {
 				</View>
 			)}
 
+			{/* FAB utama di kanan bawah untuk membuka menu */}
 			<Pressable style={styles.fab} onPress={toggleMenu}>
 				<Text
 					style={[styles.fabIcon, menuVisible && styles.fabIconClose]}
@@ -294,6 +306,7 @@ export function Discount() {
 				</Text>
 			</Pressable>
 
+			{/* Modal pengaturan diskon global (persentase + keterangan) */}
 			<Modal
 				visible={adjustModalVisible}
 				transparent

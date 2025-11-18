@@ -2,27 +2,29 @@ import * as React from 'react';
 import { Platform } from 'react-native';
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 
+// Struktur data satu hasil scan produk yang disimpan di context
 export type ScannedProductData = {
-	code: string;
+	code: string; // kode yang dipakai saat scan (barcode/internal)
 	/** Diskon yang diminta saat scan, dalam bentuk string persen, misal '10' */
 	discount: string;
-	payload: any;
-	scannedAt: string;
-	scannedByUsername?: string;
+	payload: any; // data mentah produk dari backend
+	scannedAt: string; // timestamp scan (ISO string)
+	scannedByUsername?: string; // user yang melakukan scan (kalau tersedia)
 	scannedByUuid?: string;
-	discountConfiguredByUsername?: string;
+	discountConfiguredByUsername?: string; // user yang set konfigurasi diskon
 	discountConfiguredByUuid?: string;
 };
 
+// Nilai yang disebarkan lewat DiscountContext ke seluruh modul diskon
 export type DiscountContextValue = {
-	lastScan: ScannedProductData | null;
-	setLastScan: (data: ScannedProductData | null) => void;
-	scans: ScannedProductData[];
-	clearScans: () => void;
-	removeScan: (scannedAt: string) => void;
-	printerConfigured: boolean;
+	lastScan: ScannedProductData | null; // hasil scan terakhir (dipakai di summary)
+	setLastScan: (data: ScannedProductData | null) => void; // helper untuk update lastScan + list scans
+	scans: ScannedProductData[]; // riwayat semua scan selama sesi ini
+	clearScans: () => void; // hapus semua scan
+	removeScan: (scannedAt: string) => void; // hapus satu scan berdasarkan timestamp
+	printerConfigured: boolean; // flag bahwa printer sudah di-setup di AdjustPrinter
 	setPrinterConfigured: (value: boolean) => void;
-	discountConfigured: boolean;
+	discountConfigured: boolean; // flag bahwa diskon global sudah di-set di DiscountScreen
 	setDiscountConfigured: (value: boolean) => void;
 };
 
@@ -62,6 +64,7 @@ export function DiscountProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, []);
 
+	// Update lastScan dan sekaligus menambahkannya ke daftar riwayat scan
 	const setLastScan = React.useCallback((data: ScannedProductData | null) => {
 		setLastScanState(data);
 		if (data) {
@@ -69,6 +72,7 @@ export function DiscountProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, []);
 
+	// Hapus satu scan berdasarkan scannedAt dan perbarui lastScan supaya selalu menunjuk scan terakhir
 	const removeScan = React.useCallback((scannedAt: string) => {
 		setScans((prev) => {
 			const filtered = prev.filter((item) => item.scannedAt !== scannedAt);
@@ -83,12 +87,13 @@ export function DiscountProvider({ children }: { children: React.ReactNode }) {
 		});
 	}, []);
 
+	// Hapus semua scan dan reset lastScan ke null
 	const clearScans = React.useCallback(() => {
 		setScans([]);
 		setLastScanState(null);
 	}, []);
 
-
+	// Value context yang dibagikan ke seluruh modul diskon
 	const value = React.useMemo(
 		() => ({
 			lastScan,

@@ -8,6 +8,7 @@ export function Home() {
   const navigation = useNavigation<any>();
   const { token, setToken } = useAuth();
 
+  // Kalau user belum punya token (belum login), paksa balik ke layar Login
   React.useEffect(() => {
     if (!token) {
       // If not authenticated, go back to Login
@@ -23,10 +24,12 @@ export function Home() {
     <View style={styles.container}>
       <Text>Home Screen</Text>
       <Text>Open up 'src/App.tsx' to start working on your app!</Text>
+      {/* Contoh navigasi ke screen lain */}
       <Button screen="Profile" params={{ user: 'jane' }}>
         Go to Profile
       </Button>
       <Button screen="Settings">Go to Settings</Button>
+      {/* Tombol logout sederhana: hapus token dari AuthContext */}
       <Button
         onPress={() => {
           setToken(null);

@@ -1,6 +1,7 @@
 import { Text } from '@react-navigation/elements';
 import { StyleSheet, View } from 'react-native';
 
+// Layar placeholder untuk fitur Updates, nanti bisa diisi changelog atau pengumuman
 export function Updates() {
 	return (
 		<View style={styles.container}>
@@ -17,4 +18,3 @@ const styles = StyleSheet.create({
 		gap: 10,
 	},
 });
-

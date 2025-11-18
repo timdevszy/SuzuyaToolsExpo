@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 
+// Wrapper kartu sederhana yang dipakai buat membungkus section di berbagai screen
 export function SectionCard(props: ViewProps) {
 	return <View {...props} style={[styles.card, props.style]} />;
 }

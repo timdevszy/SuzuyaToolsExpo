@@ -56,7 +56,7 @@ export function ScanProduct() {
 
 	const { request } = useApiClient();
 
-	// Request camera permission
+	// Request permission kamera sekali di awal
 	useEffect(() => {
 		(async () => {
 			const { status } = await Camera.requestCameraPermissionsAsync();
@@ -66,6 +66,7 @@ export function ScanProduct() {
 
 	useFocusEffect(
 		useCallback(() => {
+			// Setiap kali layar fokus lagi, siapin scanner dalam keadaan idle & aktif
 			setScanned(false);
 			setIsActive(true);
 			return () => {
@@ -74,6 +75,7 @@ export function ScanProduct() {
 		}, [])
 	);
 
+	// Ambil data produk dari API (atau dummy) berdasarkan kode yang discan / diinput
 	const fetchProductData = useCallback(
 		async (code: string) => {
 			const trimmed = code.trim();
@@ -154,7 +156,7 @@ export function ScanProduct() {
 		[defaultDiscount, defaultOutlet, request, username, uuid]
 	);
 
-	// Handle barcode scan
+	// Handler saat kamera berhasil membaca barcode dari CameraView
 	const handleBarCodeScanned = useCallback(
 		({ data }: { data: string }) => {
 			if (scanned || !isActive) return;
@@ -166,11 +168,12 @@ export function ScanProduct() {
 			setLastScannedCode(value);
 			setManualCode(value);
 			fetchProductData(value);
-		},
-		[fetchProductData, isActive, scanned]
+		}, [fetchProductData, isActive, scanned]
 	);
 
+	// Pencarian produk berdasarkan input manual (tanpa kamera)
 	const handleManualSearch = () => {
+		// Proses utama: pencarian produk berdasarkan input manual (tanpa kamera)
 		const trimmed = manualCode.trim();
 		if (!trimmed) {
 			setErrorMessage('Masukkan kode produk terlebih dahulu.');
@@ -181,6 +184,7 @@ export function ScanProduct() {
 		setIsManualModalVisible(false);
 	};
 
+	// Reset semua state terkait scanner & hasil terakhir (dipakai kalau mau mulai ulang)
 	const resetScannerState = () => {
 		setScanned(false);
 		setLastScannedCode(null);
@@ -190,6 +194,7 @@ export function ScanProduct() {
 		setIsActive(true);
 	};
 
+	// UI kecil untuk state permission kamera (ditolak / loading / sudah diizinkan)
 	const permissionContent = useMemo(() => {
 		if (hasPermission === false) {
 			return (
@@ -230,6 +235,7 @@ export function ScanProduct() {
 		return null;
 	}, [hasPermission]);
 
+	// Ringkasan produk yang dipakai di modal sukses (nama, kode, harga, diskon)
 	const productSummary = useMemo(() => {
 		if (!productPayload && !lastScannedCode) return null;
 		const data: any = productPayload || {};
@@ -293,6 +299,7 @@ export function ScanProduct() {
 		};
 	}, [lastScannedCode, productPayload]);
 
+	// Scanner hanya aktif kalau permission OK, tidak sedang di modal, dan flag isActive true
 	const canUseScanner =
 		hasPermission === true && isActive && !isManualModalVisible && !isSuccessModalVisible;
 
@@ -312,6 +319,7 @@ export function ScanProduct() {
 					Arahkan barcode ke kamera atau masukkan kode secara manual.
 				</Text>
 
+				{/* Area utama scanner kamera */}
 				<View style={styles.scannerWrapper}>
 					{canUseScanner ? (
 						<CameraView
@@ -323,6 +331,7 @@ export function ScanProduct() {
 						<View style={styles.permissionFallback}>{permissionContent}</View>
 					)}
 				</View>
+				{/* Feedback loading saat sedang mengatur diskon / ambil data produk */}
 				{loading && (
 					<View style={styles.scannerLoadingRow}>
 						<ActivityIndicator size="small" color="#007AFF" />
@@ -330,6 +339,7 @@ export function ScanProduct() {
 					</View>
 				)}
 
+				{/* Tombol untuk membuka input manual kalau barcode sulit terbaca kamera */}
 				<View style={styles.actionRow}>
 					<AppButton
 						variant="primary"
@@ -342,7 +352,8 @@ export function ScanProduct() {
 				</View>
 			</SectionCard>
 
-			<Modal
+			{/* Modal untuk input manual kode / nomor internal */}
+		<Modal
 				visible={isManualModalVisible}
 				transparent
 				animationType="fade"

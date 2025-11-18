@@ -23,6 +23,7 @@ import { ScanProduct } from '../modules/discount/screens/ScanProductScreen';
 import { Discount } from '../modules/discount/screens/DiscountScreen';
 import { NotFound } from './screens/NotFound/NotFound';
 
+// Header kecil di kanan atas buat nunjukin outlet aktif (dari AuthContext)
 function OutletHeaderRight() {
   const { defaultOutlet } = useAuth();
   const outletCode = defaultOutlet || '—';
@@ -63,6 +64,7 @@ function OutletHeaderRight() {
   );
 }
 
+// Header khusus di layar Discount, saat ini cuma nunjukin outlet aktif
 function DiscountHeaderRight() {
   const { scans } = useDiscount();
   const count = scans.length;
@@ -81,6 +83,7 @@ function DiscountHeaderRight() {
   );
 }
 
+// Tab utama aplikasi: Home, Updates, dan Discount
 const HomeTabs = createBottomTabNavigator({
   screens: {
     Home: {
@@ -135,6 +138,7 @@ const HomeTabs = createBottomTabNavigator({
   },
 });
 
+// Stack utama aplikasi: auth flow (Login/Register) + tab Home + screen lain
 const RootStack = createNativeStackNavigator({
   initialRouteName: 'Login',
   screens: {
@@ -205,6 +209,7 @@ const RootStack = createNativeStackNavigator({
   },
 });
 
+// Export komponen Navigation yang siap dipakai di root app
 export const Navigation = createStaticNavigation(RootStack);
 
 type RootStackParamList = StaticParamList<typeof RootStack>;
