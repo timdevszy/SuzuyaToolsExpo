@@ -45,8 +45,13 @@ export function ScanProduct() {
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [isActive, setIsActive] = useState(true);
 	const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+	const [isManualModalVisible, setIsManualModalVisible] = useState(false);
 
-	const defaultOutlet = params?.defaultOutlet ?? '2018';
+	// Outlet default diambil dari urutan prioritas:
+	// 1) params.defaultOutlet (jika dikirim dari navigasi)
+	// 2) defaultOutlet dari AuthContext (diisi saat login)
+	// 3) fallback hardcoded '2018' (legacy/default)
+	const defaultOutlet = params?.defaultOutlet ?? authOutlet ?? '2018';
 	const defaultDiscount = params?.defaultDiscountPercent ?? '0';
 
 	const { request } = useApiClient();
@@ -141,12 +146,12 @@ export function ScanProduct() {
 				);
 			} finally {
 				setLoading(false);
-				// Setelah satu proses scan selesai (berhasil atau gagal), izinkan scan berikutnya
+				// Setelah proses scan selesai, jangan langsung mengaktifkan scanner lagi.
+				// Scanner akan diaktifkan kembali secara eksplisit setelah user menutup modal sukses.
 				setScanned(false);
-				setIsActive(true);
 			}
 		},
-		[defaultDiscount, defaultOutlet, request]
+		[defaultDiscount, defaultOutlet, request, username, uuid]
 	);
 
 	// Handle barcode scan
@@ -173,6 +178,7 @@ export function ScanProduct() {
 		}
 		setLastScannedCode(trimmed);
 		fetchProductData(trimmed);
+		setIsManualModalVisible(false);
 	};
 
 	const resetScannerState = () => {
@@ -287,7 +293,8 @@ export function ScanProduct() {
 		};
 	}, [lastScannedCode, productPayload]);
 
-	const canUseScanner = hasPermission === true && isActive;
+	const canUseScanner =
+		hasPermission === true && isActive && !isManualModalVisible && !isSuccessModalVisible;
 
 	return (
 		<ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -325,31 +332,59 @@ export function ScanProduct() {
 
 				<View style={styles.actionRow}>
 					<AppButton
-						variant="outline"
-						title="Reset"
-						onPress={resetScannerState}
+						variant="primary"
+						title="Input Manual"
+						onPress={() => {
+							setIsManualModalVisible(true);
+						}}
 						style={{ flex: 1 }}
 					/>
 				</View>
 			</SectionCard>
 
-			<SectionCard style={styles.section}>
-				<Text style={styles.sectionTitle}>Input Manual</Text>
-				<View style={styles.fieldGroup}>
-					<Text style={styles.label}>Kode / Barcode</Text>
-					<TextInput
-						value={manualCode}
-						onChangeText={setManualCode}
-						placeholder="Masukkan kode produk"
-						style={styles.input}
-						autoCapitalize="characters"
-						autoCorrect={false}
-						returnKeyType="search"
-						onSubmitEditing={handleManualSearch}
-					/>
+			<Modal
+				visible={isManualModalVisible}
+				transparent
+				animationType="fade"
+				onRequestClose={() => setIsManualModalVisible(false)}
+			>
+				<View style={styles.modalBackdrop}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>Input Manual</Text>
+						<Text style={styles.modalMessage}>
+							Masukkan nomor internal produk secara manual.
+						</Text>
+						<View style={[styles.fieldGroup, { marginTop: 8 }]}>
+							<Text style={styles.label}>Kode / Nomor Internal</Text>
+							<TextInput
+								value={manualCode}
+								onChangeText={setManualCode}
+								placeholder="Masukkan kode produk"
+								style={styles.input}
+								autoCapitalize="characters"
+								autoCorrect={false}
+								returnKeyType="search"
+								onSubmitEditing={handleManualSearch}
+							/>
+						</View>
+						<View style={styles.modalActions}>
+							<TouchableOpacity
+								style={[styles.modalButton, { backgroundColor: '#e5e7eb' }]}
+								onPress={() => setIsManualModalVisible(false)}
+							>
+								<Text style={[styles.modalButtonText, { color: '#111827' }]}>Batal</Text>
+							</TouchableOpacity>
+							<View style={{ width: 12 }} />
+							<TouchableOpacity
+								style={styles.modalButton}
+								onPress={handleManualSearch}
+							>
+								<Text style={styles.modalButtonText}>Cari</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
 				</View>
-				<AppButton title="Cari Produk" onPress={handleManualSearch} />
-			</SectionCard>
+			</Modal>
 
 			<Modal
 				visible={isSuccessModalVisible}
@@ -395,13 +430,14 @@ export function ScanProduct() {
 						)}
 						<View style={styles.modalActions}>
 							<TouchableOpacity
-									style={styles.modalButton}
-									onPress={() => {
-										setIsSuccessModalVisible(false);
-									}}
-								>
-									<Text style={styles.modalButtonText}>OK</Text>
-								</TouchableOpacity>
+								style={styles.modalButton}
+								onPress={() => {
+									setIsSuccessModalVisible(false);
+									setIsActive(true);
+								}}
+							>
+								<Text style={styles.modalButtonText}>OK</Text>
+							</TouchableOpacity>
 						</View>
 					</View>
 				</View>

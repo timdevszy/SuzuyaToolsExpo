@@ -1,5 +1,6 @@
 import * as React from 'react';
-import MMKVStorage from 'react-native-mmkv-storage';
+import { Platform } from 'react-native';
+import RNBluetoothClassic from 'react-native-bluetooth-classic';
 
 export type ScannedProductData = {
 	code: string;
@@ -27,38 +28,37 @@ export type DiscountContextValue = {
 
 const DiscountContext = React.createContext<DiscountContextValue | undefined>(undefined);
 
-// MMKV instance khusus modul discount
-const MMKV = new MMKVStorage.Loader().withInstanceID('discount').initialize();
-const STORAGE_KEY = 'discount_scans_v1';
-
 export function DiscountProvider({ children }: { children: React.ReactNode }) {
 	const [lastScan, setLastScanState] = React.useState<ScannedProductData | null>(null);
 	const [scans, setScans] = React.useState<ScannedProductData[]>([]);
 	const [printerConfigured, setPrinterConfigured] = React.useState<boolean>(false);
 	const [discountConfigured, setDiscountConfigured] = React.useState(false);
 
-	// Load persisted flags (printer & discount) saat pertama kali mount
+	// Saat konteks discount di-unmount (mis. app reload), coba putuskan koneksi printer Bluetooth
 	React.useEffect(() => {
-		let isMounted = true;
-		try {
-			const content = MMKV.getString(STORAGE_KEY);
-			if (!content) return;
-			const parsed = JSON.parse(content) as {
-				printerConfigured?: boolean;
-				discountConfigured?: boolean;
-			};
-			if (!isMounted) return;
-			if (typeof parsed.printerConfigured === 'boolean') {
-				setPrinterConfigured(parsed.printerConfigured);
-			}
-			if (typeof parsed.discountConfigured === 'boolean') {
-				setDiscountConfigured(parsed.discountConfigured);
-			}
-		} catch {
-			// abaikan error load, gunakan state default
-		}
 		return () => {
-			isMounted = false;
+			if (Platform.OS !== 'android') return;
+			if (!RNBluetoothClassic || typeof RNBluetoothClassic.getConnectedDevices !== 'function') {
+				return;
+			}
+			// Fire-and-forget async disconnect; kita tidak perlu menunggu selesai
+			(async () => {
+				try {
+					const devices = await RNBluetoothClassic.getConnectedDevices();
+					if (!devices || !devices.length) return;
+					for (const device of devices) {
+						try {
+							if (device && typeof (device as any).disconnect === 'function') {
+								await (device as any).disconnect();
+							}
+						} catch {
+							// abaikan error per perangkat
+						}
+					}
+				} catch {
+					// abaikan error global disconnect
+				}
+			})();
 		};
 	}, []);
 
@@ -88,18 +88,6 @@ export function DiscountProvider({ children }: { children: React.ReactNode }) {
 		setLastScanState(null);
 	}, []);
 
-	// Persist hanya flag penting ke storage (sinkron, sangat cepat di MMKV)
-	React.useEffect(() => {
-		try {
-			const payload = JSON.stringify({
-				printerConfigured,
-				discountConfigured,
-			});
-			MMKV.setString(STORAGE_KEY, payload);
-		} catch {
-			// abaikan error simpan, jangan ganggu UX
-		}
-	}, [lastScan, scans, printerConfigured, discountConfigured]);
 
 	const value = React.useMemo(
 		() => ({

@@ -77,28 +77,6 @@ function DiscountHeaderRight() {
       }}
     >
       <OutletHeaderRight />
-      {showPrintAll && (
-        <View
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: '#d1d5db',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: '600',
-              color: '#111827',
-            }}
-          >
-            Print all
-          </Text>
-        </View>
-      )}
     </View>
   );
 }

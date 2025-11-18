@@ -48,7 +48,18 @@ export function Discount() {
 	};
 
 	const handleDeleteScan = (scannedAt: string) => {
-		removeScan(scannedAt);
+		Alert.alert(
+			'Hapus data',
+			'Apakah Anda yakin ingin menghapus data scan ini?',
+			[
+				{ text: 'Batal', style: 'cancel' },
+				{
+					text: 'Hapus',
+					style: 'destructive',
+					onPress: () => removeScan(scannedAt),
+				},
+			]
+		);
 	};
 
 	const handlePrintScan = async (scan: any) => {
@@ -127,25 +138,17 @@ export function Discount() {
 			}
 			// Baris harga langsung mengikuti kode barcode (tanpa extra blank line berlebih)
 
-			// Harga dalam satu baris
+			// Harga dengan label jelas tanpa garis coret: "Harga Normal" dan "Harga Promo"
 			printData += '\x1B\x61\x01'; // Center align
 			if (hargaAwal != null && hargaDiskon != null) {
-				printData += 'Harga: ';
-				printData += '\x1B\x2D\x01';
-				printData += `Rp ${hargaAwal.toLocaleString('id-ID')}`;
-				printData += '\x1B\x2D\x00';
-				printData += ' ';
-				printData += `Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
+				printData += `Harga Normal: Rp ${hargaAwal.toLocaleString('id-ID')}\n`;
+				printData += `Harga Promo : Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
 			} else if (hargaAwal != null) {
 				// Fallback jika hanya harga awal yang tersedia
-				printData += 'Harga: ';
-				printData += '\x1B\x2D\x01';
-				printData += `Rp ${hargaAwal.toLocaleString('id-ID')}`;
-				printData += '\x1B\x2D\x00';
-				printData += '\n';
+				printData += `Harga Normal: Rp ${hargaAwal.toLocaleString('id-ID')}\n`;
 			} else if (hargaDiskon != null) {
 				// Fallback jika hanya harga diskon yang tersedia
-				printData += `Harga: Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
+				printData += `Harga Promo: Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
 			}
 
 			printData += '\x0A\x0A';
@@ -153,6 +156,28 @@ export function Discount() {
 			Alert.alert('Berhasil', 'Data cetak dikirim ke printer.');
 		} catch (error: any) {
 			Alert.alert('Gagal cetak', error?.message || 'Terjadi kesalahan saat mengirim data ke printer.');
+		}
+	};
+
+	const handlePrintAll = async () => {
+		if (!scans || !scans.length) {
+			Alert.alert('Tidak ada data', 'Belum ada produk yang discan untuk dicetak.');
+			return;
+		}
+
+		if (Platform.OS !== 'android') {
+			Alert.alert('Belum didukung', 'Cetak label saat ini hanya didukung di Android.');
+			return;
+		}
+
+		try {
+			for (const scan of scans) {
+				// Cetak setiap scan secara berurutan untuk menjaga jarak dan urutan rapi
+				// eslint-disable-next-line no-await-in-loop
+				await handlePrintScan(scan);
+			}
+		} catch (error: any) {
+			Alert.alert('Gagal cetak', error?.message || 'Terjadi kesalahan saat mencetak semua label.');
 		}
 	};
 
@@ -233,6 +258,15 @@ export function Discount() {
 							/>
 						</SectionCard>
 					))}
+				{hasScans && scans.length > 1 && (
+					<View style={styles.printAllContainer}>
+						<AppButton
+							variant="primary"
+							title="Print All"
+							onPress={handlePrintAll}
+						/>
+					</View>
+				)}
 			</ScrollView>
 
 			{menuVisible && (
@@ -269,7 +303,7 @@ export function Discount() {
 				<View style={styles.modalBackdrop}>
 					<KeyboardAvoidingView
 						style={styles.keyboardAvoiding}
-						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+						behavior={Platform.select({ ios: 'padding', android: 'padding' })}
 					>
 						<View style={styles.modalContent}>
 							<Text style={styles.modalTitle}>Diskon / Harga Spesial (%)</Text>
@@ -286,7 +320,7 @@ export function Discount() {
 							<TextInput
 								value={draftDescription}
 								onChangeText={setDraftDescription}
-								placeholder="Tuliskan catatan promo (opsional)"
+								placeholder="Tuliskan catatan promo"
 								style={[styles.modalInput, styles.modalTextarea]}
 								multiline
 								numberOfLines={3}
@@ -529,12 +563,9 @@ const styles = StyleSheet.create({
 		color: '#1f2937',
 		fontWeight: '500',
 	},
-	modalButtonPrimary: {
-		backgroundColor: '#007AFF',
-	},
-	modalButtonPrimaryText: {
-		fontSize: 15,
-		color: '#fff',
-		fontWeight: '600',
+	printAllContainer: {
+		marginTop: 16,
+		marginBottom: 24,
+		paddingHorizontal: 16,
 	},
 });
