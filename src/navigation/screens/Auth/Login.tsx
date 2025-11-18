@@ -170,7 +170,7 @@ export function Login(_: Props) {
 	return (
 		<KeyboardAvoidingView
 			style={styles.container}
-			behavior={Platform.select({ ios: 'padding', android: undefined })}
+			behavior={Platform.select({ ios: 'padding', android: 'height' })}
 		>
 			<View style={styles.card}>
 				<Text style={styles.title}>SuzuyaTools</Text>
