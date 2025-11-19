@@ -107,13 +107,13 @@ const styles = StyleSheet.create({
   },
   lottie: {
     width: '100%',
-    height: '100%',
+    height: '70%',
   },
   content: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginTop: -210,
+    marginTop: 12,
   },
   title: {
     fontSize: 22,
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     maxWidth: width * 0.8,
     color: '#4b5563',
     lineHeight: 22,
-    marginBottom: 150,
+    marginBottom: 24,
   },
   footer: {
     width: '100%',
