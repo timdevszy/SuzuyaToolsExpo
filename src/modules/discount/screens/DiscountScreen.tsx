@@ -18,6 +18,7 @@ import { SectionCard } from '../../../ui/components/SectionCard';
 import { AppButton } from '../../../ui/components/AppButton';
 import { LastScannedSummary } from '../components/LastScannedSummary';
 import { useDevBypass } from '../../../dev/DevBypassContext';
+import { printScanLabel, printAllLabels } from '../printing/printLabel';
 
 export function Discount() {
 	const navigation = useNavigation<any>();
@@ -66,125 +67,14 @@ export function Discount() {
 		);
 	};
 
-	// Cetak satu hasil scan sebagai label diskon lewat printer Bluetooth
+	// Helper untuk cetak satu scan, dialihkan ke modul printing
 	const handlePrintScan = async (scan: any) => {
-		if (Platform.OS !== 'android') {
-			Alert.alert('Belum didukung', 'Cetak label saat ini hanya didukung di Android.');
-			return;
-		}
-
-		try {
-			const { default: RNBluetoothClassic } = await import('react-native-bluetooth-classic');
-			const devices = await RNBluetoothClassic.getConnectedDevices();
-			if (!devices || !devices.length) {
-				Alert.alert('Printer belum terhubung', 'Silakan hubungkan printer terlebih dahulu di menu Adjust Printer.');
-				return;
-			}
-
-			const device = devices[0];
-			const data: any = scan.payload || {};
-			const name =
-				data.name_product || data.descript || data.name || 'Produk tanpa nama';
-			const internal =
-				data.internal || data.code_barcode_lama || data.mixcode || data.code_scan || scan.code;
-			const barcodeLama = data.code_barcode_lama || internal || scan.code;
-			const discountSource =
-				data.discount != null
-					? Number(data.discount)
-					: scan.discount != null
-						? Number(scan.discount)
-						: null;
-			const discountPercent =
-				discountSource != null && Number.isFinite(discountSource)
-					? Math.trunc(discountSource)
-					: null;
-			const discountSuffix =
-				discountPercent != null ? String(discountPercent) : null;
-			const barcodeBaru =
-				data.code_barcode_baru ||
-				(barcodeLama && discountSuffix != null
-					? `A${barcodeLama}${discountSuffix}`
-					: scan.code);
-			const hargaAwalRaw =
-				data.harga_awal ?? data.retail_price ?? data.rrtlprc ?? data.harga ?? null;
-			const hargaDiskonRaw =
-				data.harga_discount ?? data.harga_diskon ?? null;
-			const hargaAwal = hargaAwalRaw != null ? Number(hargaAwalRaw) : null;
-			const hargaDiskon = hargaDiskonRaw != null ? Number(hargaDiskonRaw) : null;
-			const qty = data.qty != null ? Number(data.qty) : 1;
-			const uom = data.uomsales || 'PCS';
-
-			let printData = '';
-			printData += '\x1B\x40'; // Initialize
-			printData += '\x1B\x61\x01'; // Center
-
-			if (discountPercent != null) {
-				// Besarkan teks HEMAT XX%
-				printData += '\x1B\x21\x30';
-				printData += `HEMAT ${discountPercent}%\n`;
-				printData += '\x1B\x21\x00';
-			}
-
-			printData += `${name}\n`;
-			printData += `Qty: ${qty} ${uom}\n`;
-
-			if (barcodeBaru) {
-				// Barcode Code128: gunakan fungsi 73 (0x49) dengan panjang eksplisit
-				const barcodeContent = String(barcodeBaru);
-				const barcodeLengthChar = String.fromCharCode(barcodeContent.length);
-				// Sedikit perbesar ukuran barcode (tinggi dan ketebalan garis)
-				printData += '\x1D\x68\x50'; // GS h 80 dot tinggi
-				printData += '\x1D\x77\x03'; // GS w 3 module width
-				printData += '\x1D\x6B\x49';
-				printData += barcodeLengthChar + barcodeContent;
-				printData += '\n';
-				// Tampilkan kode barcode sebagai teks di bawah gambar barcode
-				printData += `${barcodeContent}\n`;
-			}
-			// Baris harga langsung mengikuti kode barcode (tanpa extra blank line berlebih)
-
-			// Harga dengan label jelas tanpa garis coret: "Harga Normal" dan "Harga Promo"
-			printData += '\x1B\x61\x01'; // Center align
-			if (hargaAwal != null && hargaDiskon != null) {
-				printData += `Harga Normal: Rp ${hargaAwal.toLocaleString('id-ID')}\n`;
-				printData += `Harga Promo : Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
-			} else if (hargaAwal != null) {
-				// Fallback jika hanya harga awal yang tersedia
-				printData += `Harga Normal: Rp ${hargaAwal.toLocaleString('id-ID')}\n`;
-			} else if (hargaDiskon != null) {
-				// Fallback jika hanya harga diskon yang tersedia
-				printData += `Harga Promo: Rp ${hargaDiskon.toLocaleString('id-ID')}\n`;
-			}
-
-			printData += '\x0A\x0A';
-			await device.write(printData);
-			Alert.alert('Berhasil', 'Data cetak dikirim ke printer.');
-		} catch (error: any) {
-			Alert.alert('Gagal cetak', error?.message || 'Terjadi kesalahan saat mengirim data ke printer.');
-		}
+		await printScanLabel(scan);
 	};
 
-	// Cetak semua hasil scan secara berurutan
+	// Helper untuk cetak semua scan
 	const handlePrintAll = async () => {
-		if (!scans || !scans.length) {
-			Alert.alert('Tidak ada data', 'Belum ada produk yang discan untuk dicetak.');
-			return;
-		}
-
-		if (Platform.OS !== 'android') {
-			Alert.alert('Belum didukung', 'Cetak label saat ini hanya didukung di Android.');
-			return;
-		}
-
-		try {
-			for (const scan of scans) {
-				// Cetak setiap scan secara berurutan untuk menjaga jarak dan urutan rapi
-				// eslint-disable-next-line no-await-in-loop
-				await handlePrintScan(scan);
-			}
-		} catch (error: any) {
-			Alert.alert('Gagal cetak', error?.message || 'Terjadi kesalahan saat mencetak semua label.');
-		}
+		await printAllLabels(scans);
 	};
 
 	// Toggle buka/tutup menu floating (FAB +)
@@ -264,7 +154,21 @@ export function Discount() {
 						>
 							<LastScannedSummary
 								lastScan={scan}
-								onPrint={() => handlePrintScan(scan)}
+								onPrint={() => {
+									Alert.alert(
+										'Konfirmasi Print',
+										'Apakah Anda yakin ingin mencetak label untuk produk ini?',
+										[
+											{ text: 'Batal', style: 'cancel' },
+											{
+												text: 'Print',
+												style: 'default',
+												// eslint-disable-next-line @typescript-eslint/no-misused-promises
+												onPress: () => handlePrintScan(scan),
+											},
+										],
+									);
+								}}
 								onDelete={() => handleDeleteScan(scan.scannedAt)}
 							/>
 						</SectionCard>
@@ -275,7 +179,21 @@ export function Discount() {
 						<AppButton
 							variant="primary"
 							title="Print All"
-							onPress={handlePrintAll}
+							onPress={() => {
+								Alert.alert(
+									'Konfirmasi Print Semua',
+									'Apakah Anda yakin ingin mencetak semua label yang sudah discan?',
+									[
+										{ text: 'Batal', style: 'cancel' },
+										{
+											text: 'Print All',
+											style: 'default',
+											// eslint-disable-next-line @typescript-eslint/no-misused-promises
+											onPress: () => handlePrintAll(),
+										},
+									],
+								);
+							}}
 						/>
 					</View>
 				)}

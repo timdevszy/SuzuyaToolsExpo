@@ -8,7 +8,7 @@ export type ScanProductPayload = {
 // Bentuk mentah respons dari backend, dibiarkan any karena formatnya fleksibel
 export type ScanProductRawResponse = any;
 
-// Hasil yang sudah kita rapikan buat dipakai di UI
+// Hasil yang sudah di rapikan buat dipakai di UI
 export type ScanProductResult = {
 	product: any | null; // object produk pertama dari results, atau null kalau nggak ada
 	raw: ScanProductRawResponse; // data mentah (JSON penuh atau text) buat debugging / keperluan lain

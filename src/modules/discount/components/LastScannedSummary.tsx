@@ -206,8 +206,9 @@ const styles = StyleSheet.create({
 		marginRight: 4,
 	},
 	priceOriginal: {
-		fontSize: 13,
-		color: '#9ca3af',
+		fontSize: 14,
+		color: '#999',
+		marginLeft: 4,
 		textDecorationLine: 'line-through',
 	},
 	priceDiscount: {

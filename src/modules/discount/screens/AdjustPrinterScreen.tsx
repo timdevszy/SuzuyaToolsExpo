@@ -467,15 +467,21 @@ export function AdjustPrinter() {
 			// Teks kode barcode
 			printData += `${barcode.code}\n`;
 
-			// Bagian harga
-			printData += 'Harga: ';
-			// Harga normal (strikethrough - ESC/POS tidak mendukung coret tengah secara langsung, jadi menggunakan underline)
-			printData += '\x1B\x2D\x01'; // ESC - 1 - Underline on
-			printData += `Rp. ${barcode.normalPrice.toLocaleString('id-ID')}`;
-			printData += '\x1B\x2D\x00'; // ESC - 0 - Underline off
-			printData += ' ';
-			// Harga diskon
-			printData += `Rp. ${barcode.discountPrice.toLocaleString('id-ID')}\n`;
+			// Bagian harga:
+			//  - Harga normal ditandai jelas sebagai harga awal/tidak berlaku.
+			//  - Harga diskon dibuat paling menonjol dengan teks tegas dan bold.
+			printData += 'HARGA AWAL   : ';
+			printData += `Rp ${barcode.normalPrice.toLocaleString('id-ID')} (TIDAK BERLAKU)\n`;
+			
+			// Sedikit jarak sebelum harga diskon
+			printData += '\n';
+			
+			// Aktifkan bold (ESC E 1) untuk menonjolkan harga diskon
+			printData += '\x1B\x45\x01';
+			printData += 'HARGA DISKON : ';
+			printData += `Rp ${barcode.discountPrice.toLocaleString('id-ID')}\n`;
+			// Nonaktifkan bold (ESC E 0)
+			printData += '\x1B\x45\x00';
 
 			// Beberapa baris baru di akhir
 			printData += '\x0A\x0A';
