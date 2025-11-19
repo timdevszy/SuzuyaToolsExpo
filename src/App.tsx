@@ -4,7 +4,7 @@ import { Asset } from 'expo-asset';
 import { createURL } from 'expo-linking';
 import * as SplashScreen from 'expo-splash-screen';
 import * as React from 'react';
-import { useColorScheme } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
 import { AuthProvider } from './auth/AuthContext';
 import { DiscountProvider } from './modules/discount/state/DiscountContext';
@@ -33,6 +33,12 @@ export function App() {
     // Bungkus app dengan AuthProvider dan DiscountProvider supaya context bisa dipakai di semua screen
     <AuthProvider>
       <DiscountProvider>
+        <StatusBar
+          translucent={false}
+          backgroundColor="transparent"
+          barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+          hidden={false}
+        />
         {__DEV__ ? (
           <DevBypassProvider>
             <Navigation

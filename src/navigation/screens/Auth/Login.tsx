@@ -42,7 +42,7 @@ export function Login(_: Props) {
 			try {
 				// For testing: set the registered device_id
 				// This device_id is already registered in backend for user 'billy'
-				setManualDeviceId('93805d3ee461195ccbafa1cc86d7340694be86138f9f770500cf4f4da989c15f');
+				setManualDeviceId('85cb2002b9fe42ca6328271c1512f03d57962c24a1e235466612ac230ed9fda8');
 				const id = await getDeviceId();
 				if (mounted) setComputedDeviceId(id);
 			} catch {

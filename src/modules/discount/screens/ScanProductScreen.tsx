@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
+	KeyboardAvoidingView,
 	Linking,
 	Modal,
 	Platform,
@@ -361,49 +362,55 @@ export function ScanProduct() {
 			</SectionCard>
 
 			{/* Modal untuk input manual kode / nomor internal */}
-		<Modal
-				visible={isManualModalVisible}
-				transparent
-				animationType="fade"
-				onRequestClose={() => setIsManualModalVisible(false)}
-			>
-				<View style={styles.modalBackdrop}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>Input Manual</Text>
-						<Text style={styles.modalMessage}>
-							Masukkan nomor internal produk secara manual.
-						</Text>
-						<View style={[styles.fieldGroup, { marginTop: 8 }]}>
-							<Text style={styles.label}>Kode / Nomor Internal</Text>
-							<TextInput
-								value={manualCode}
-								onChangeText={setManualCode}
-								placeholder="Masukkan kode produk"
-								style={styles.input}
-								autoCapitalize="characters"
-								autoCorrect={false}
-								returnKeyType="search"
-								onSubmitEditing={handleManualSearch}
-							/>
+			<Modal
+					visible={isManualModalVisible}
+					transparent
+					animationType="fade"
+					onRequestClose={() => setIsManualModalVisible(false)}
+				>
+					<KeyboardAvoidingView
+							style={{ flex: 1 }}
+							behavior={Platform.select({ ios: 'padding', android: 'height' })}
+							keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+					>
+						<View style={styles.modalBackdrop}>
+							<View style={styles.modalContent}>
+								<Text style={styles.modalTitle}>Input Manual</Text>
+								<Text style={styles.modalMessage}>
+									Masukkan nomor internal produk secara manual.
+								</Text>
+								<View style={[styles.fieldGroup, { marginTop: 8 }]}>
+									<Text style={styles.label}>Kode / Nomor Internal</Text>
+									<TextInput
+										value={manualCode}
+										onChangeText={setManualCode}
+										placeholder="Masukkan kode produk"
+										style={styles.input}
+										autoCapitalize="characters"
+										autoCorrect={false}
+										returnKeyType="search"
+										onSubmitEditing={handleManualSearch}
+									/>
+								</View>
+								<View style={styles.modalActions}>
+									<TouchableOpacity
+										style={[styles.modalButton, { backgroundColor: '#e5e7eb' }]}
+										onPress={() => setIsManualModalVisible(false)}
+									>
+										<Text style={[styles.modalButtonText, { color: '#111827' }]}>Batal</Text>
+									</TouchableOpacity>
+									<View style={{ width: 12 }} />
+									<TouchableOpacity
+										style={styles.modalButton}
+										onPress={handleManualSearch}
+									>
+										<Text style={styles.modalButtonText}>Cari</Text>
+									</TouchableOpacity>
+								</View>
+							</View>
 						</View>
-						<View style={styles.modalActions}>
-							<TouchableOpacity
-								style={[styles.modalButton, { backgroundColor: '#e5e7eb' }]}
-								onPress={() => setIsManualModalVisible(false)}
-							>
-								<Text style={[styles.modalButtonText, { color: '#111827' }]}>Batal</Text>
-							</TouchableOpacity>
-							<View style={{ width: 12 }} />
-							<TouchableOpacity
-								style={styles.modalButton}
-								onPress={handleManualSearch}
-							>
-								<Text style={styles.modalButtonText}>Cari</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				</View>
-			</Modal>
+					</KeyboardAvoidingView>
+				</Modal>
 
 			<Modal
 				visible={isSuccessModalVisible}
