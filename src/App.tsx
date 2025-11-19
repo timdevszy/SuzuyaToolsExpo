@@ -8,6 +8,7 @@ import { useColorScheme } from 'react-native';
 import { Navigation } from './navigation';
 import { AuthProvider } from './auth/AuthContext';
 import { DiscountProvider } from './modules/discount/state/DiscountContext';
+import { DevBypassProvider } from './dev/DevBypassContext';
 
 // Preload aset gambar yang dipakai di navigasi (ikon tab, dll.)
 Asset.loadAsync([
@@ -32,17 +33,33 @@ export function App() {
     // Bungkus app dengan AuthProvider dan DiscountProvider supaya context bisa dipakai di semua screen
     <AuthProvider>
       <DiscountProvider>
-        <Navigation
-          theme={theme}
-          linking={{
-            enabled: 'auto',
-            prefixes: [prefix],
-          }}
-          // Sembunyikan SplashScreen setelah navigasi siap
-          onReady={() => {
-            SplashScreen.hideAsync();
-          }}
-        />
+        {__DEV__ ? (
+          <DevBypassProvider>
+            <Navigation
+              theme={theme}
+              linking={{
+                enabled: 'auto',
+                prefixes: [prefix],
+              }}
+              // Sembunyikan SplashScreen setelah navigasi siap
+              onReady={() => {
+                SplashScreen.hideAsync();
+              }}
+            />
+          </DevBypassProvider>
+        ) : (
+          <Navigation
+            theme={theme}
+            linking={{
+              enabled: 'auto',
+              prefixes: [prefix],
+            }}
+            // Sembunyikan SplashScreen setelah navigasi siap
+            onReady={() => {
+              SplashScreen.hideAsync();
+            }}
+          />
+        )}
       </DiscountProvider>
     </AuthProvider>
   );

@@ -17,6 +17,7 @@ import { useAuth } from '../../../auth/AuthContext';
 import { SectionCard } from '../../../ui/components/SectionCard';
 import { AppButton } from '../../../ui/components/AppButton';
 import { LastScannedSummary } from '../components/LastScannedSummary';
+import { useDevBypass } from '../../../dev/DevBypassContext';
 
 export function Discount() {
 	const navigation = useNavigation<any>();
@@ -29,6 +30,7 @@ export function Discount() {
 		removeScan,
 	} = useDiscount();
 	const { username, uuid } = useAuth();
+	const { bypassRules } = useDevBypass();
 	const [menuVisible, setMenuVisible] = useState(false);
 	const [adjustModalVisible, setAdjustModalVisible] = useState(false);
 	const [activeDiscountPercent, setActiveDiscountPercent] = useState('0');
@@ -203,7 +205,7 @@ export function Discount() {
 			}
 			navigation.navigate('AdjustPrinter');
 		} else if (action === 'adjust-discount') {
-			if (!printerConfigured) {
+			if (!bypassRules && !printerConfigured) {
 				Alert.alert('Printer belum diatur', 'Silakan atur printer terlebih dahulu sebelum mengatur diskon.');
 				return;
 			}
@@ -211,11 +213,11 @@ export function Discount() {
 			setDraftDescription('');
 			setAdjustModalVisible(true);
 		} else if (action === 'scan-product') {
-			if (!printerConfigured) {
+			if (!bypassRules && !printerConfigured) {
 				Alert.alert('Printer belum diatur', 'Silakan atur printer terlebih dahulu sebelum scan produk.');
 				return;
 			}
-			if (!discountConfigured) {
+			if (!bypassRules && !discountConfigured) {
 				Alert.alert('Diskon belum diatur', 'Silakan atur diskon terlebih dahulu sebelum scan produk.');
 				return;
 			}
@@ -411,7 +413,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-start',
 		paddingHorizontal: 16,
 		paddingTop: 16,
-		paddingBottom: 48,
+		paddingBottom: 16,
 	},
 	emptyStateTitle: {
 		fontSize: 20,
@@ -578,7 +580,11 @@ const styles = StyleSheet.create({
 	},
 	printAllContainer: {
 		marginTop: 16,
-		marginBottom: 24,
+		marginBottom: 0,
+		// Trik: konten ScrollView punya paddingHorizontal 16,
+		// jadi kita kasih marginHorizontal -16 supaya kontainer tombol
+		// bisa melebar penuh sampai tepi layar (full width)
+		marginHorizontal: -16,
 		paddingHorizontal: 16,
 	},
 });

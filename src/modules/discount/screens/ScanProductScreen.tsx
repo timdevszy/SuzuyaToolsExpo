@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Linking,
@@ -46,6 +46,8 @@ export function ScanProduct() {
 	const [isActive, setIsActive] = useState(true);
 	const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
 	const [isManualModalVisible, setIsManualModalVisible] = useState(false);
+	// Ref lock untuk mencegah beberapa request scan berjalan bersamaan
+	const scanningRef = useRef(false);
 
 	// Outlet default diambil dari urutan prioritas:
 	// 1) params.defaultOutlet (jika dikirim dari navigasi)
@@ -159,16 +161,22 @@ export function ScanProduct() {
 	// Handler saat kamera berhasil membaca barcode dari CameraView
 	const handleBarCodeScanned = useCallback(
 		({ data }: { data: string }) => {
-			if (scanned || !isActive) return;
+			// Jangan proses kalau sedang tidak aktif atau masih ada request scan yang berjalan
+			if (!isActive || scanningRef.current) return;
 
 			const value = data?.trim();
 			if (!value) return;
 
+			// Kunci supaya event berikutnya diabaikan sampai request selesai
+			scanningRef.current = true;
 			setScanned(true);
 			setLastScannedCode(value);
 			setManualCode(value);
-			fetchProductData(value);
-		}, [fetchProductData, isActive, scanned]
+			fetchProductData(value).finally(() => {
+				// Buka kunci setelah selesai supaya bisa scan lagi
+				scanningRef.current = false;
+			});
+		}, [fetchProductData, isActive]
 	);
 
 	// Pencarian produk berdasarkan input manual (tanpa kamera)

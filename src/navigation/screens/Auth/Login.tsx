@@ -10,10 +10,12 @@ import {
 	Text,
 	TextInput,
 	View,
+	Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { getDeviceId, setManualDeviceId } from '../../../utils/deviceId';
 import { useAuth } from '../../../auth/AuthContext';
+import { useDevBypass } from '../../../dev/DevBypassContext';
 
 type Props = {
 	navigation: any;
@@ -32,6 +34,7 @@ export function Login(_: Props) {
 	const [password, setPassword] = useState('12345678');
 	const [loading, setLoading] = useState(false);
 	const [computedDeviceId, setComputedDeviceId] = useState<string>('');
+	const { bypassRules, setBypassRules } = useDevBypass();
 
 	useEffect(() => {
 		let mounted = true;
@@ -165,7 +168,7 @@ export function Login(_: Props) {
 		} finally {
 			setLoading(false);
 		}
-	}, [username, password, computedDeviceId, navigation, setToken]);
+	}, [username, password, computedDeviceId, navigation, setToken, bypassRules]);
 
 	return (
 		<KeyboardAvoidingView
@@ -194,6 +197,22 @@ export function Login(_: Props) {
 					returnKeyType="done"
 					textContentType="password"
 				/>
+				{__DEV__ && (
+					<Pressable
+						style={styles.devRow}
+						onPress={() => setBypassRules(!bypassRules)}
+					>
+						<View style={[styles.devCheckboxBox, bypassRules && styles.devCheckboxBoxChecked]}>
+							{bypassRules && <Text style={styles.devCheckboxCheck}>✓</Text>}
+						</View>
+						<View style={{ flex: 1 }}>
+							<Text style={styles.devLabel}>Dev Mode: Lewati rules</Text>
+							<Text style={styles.devHint}>
+								Kalau aktif, beberapa pengecekan seperti printer/diskon bisa di-skip untuk testing.
+							</Text>
+						</View>
+					</Pressable>
+				)}
 				<View style={styles.buttonRow}>
 					{loading ? (
 						<ActivityIndicator />
@@ -216,6 +235,7 @@ export function Login(_: Props) {
 		</KeyboardAvoidingView>
 	);
 }
+
 
 const styles = StyleSheet.create({
 	container: {
@@ -258,5 +278,39 @@ const styles = StyleSheet.create({
 	},
 	buttonRow: {
 		marginTop: 8,
+	},
+	devRow: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+		marginTop: 4,
+		marginBottom: 8,
+		gap: 8,
+	},
+	devCheckboxBox: {
+		width: 20,
+		height: 20,
+		borderWidth: 2,
+		borderColor: '#007AFF',
+		borderRadius: 4,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'white',
+	},
+	devCheckboxBoxChecked: {
+		backgroundColor: '#007AFF',
+	},
+	devCheckboxCheck: {
+		color: 'white',
+		fontSize: 14,
+		fontWeight: 'bold',
+	},
+	devLabel: {
+		fontSize: 13,
+		color: '#111827',
+		fontWeight: '500',
+	},
+	devHint: {
+		fontSize: 11,
+		color: '#6b7280',
 	},
 });
