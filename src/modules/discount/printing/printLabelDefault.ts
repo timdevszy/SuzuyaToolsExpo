@@ -40,7 +40,7 @@ export const buildPrintLabelPayload = (scan: any) => {
 		discountPercent,
 		hargaAwal,
 		hargaDiskon,
-		qty,
+ 		qty,
 		uom,
 	};
 };

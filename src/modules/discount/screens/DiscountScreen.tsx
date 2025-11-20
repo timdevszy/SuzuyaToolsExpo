@@ -18,7 +18,7 @@ import { SectionCard } from '../../../ui/components/SectionCard';
 import { AppButton } from '../../../ui/components/AppButton';
 import { LastScannedSummary } from '../components/LastScannedSummary';
 import { useDevBypass } from '../../../dev/DevBypassContext';
-import { printScanLabel, printAllLabels } from '../printing/printLabel';
+import { printScanLabel, printAllLabels } from '../printing/printLabelDefault';
 
 export function Discount() {
 	const navigation = useNavigation<any>();
@@ -69,7 +69,8 @@ export function Discount() {
 
 	// Helper untuk cetak satu scan, dialihkan ke modul printing
 	const handlePrintScan = async (scan: any) => {
-		await printScanLabel(scan);
+		// Alihkan ke layar preview supaya user bisa melihat preview label sebelum mencetak
+		navigation.navigate('PrintPreview', { scan, mode: 'Default' });
 	};
 
 	// Helper untuk cetak semua scan
@@ -144,35 +145,25 @@ export function Discount() {
 				)}
 				{/* Daftar hasil scan, paling baru di atas */}
 				{hasScans &&
-						scans.map((scan, index) => (
-						<SectionCard
-							key={`${scan.scannedAt}-${index}`}
-							style={[
-								styles.summaryCard,
-								index > 0 ? { marginTop: 16 } : null,
-							]}
-						>
-							<LastScannedSummary
-								lastScan={scan}
-								onPrint={() => {
-									Alert.alert(
-										'Konfirmasi Print',
-										'Apakah Anda yakin ingin mencetak label untuk produk ini?',
-										[
-											{ text: 'Batal', style: 'cancel' },
-											{
-												text: 'Print',
-												style: 'default',
-												// eslint-disable-next-line @typescript-eslint/no-misused-promises
-												onPress: () => handlePrintScan(scan),
-											},
-										],
-									);
-								}}
-								onDelete={() => handleDeleteScan(scan.scannedAt)}
-							/>
-						</SectionCard>
-						))}
+							scans.map((scan, index) => (
+								<SectionCard
+									key={`${scan.scannedAt}-${index}`}
+									style={[
+										styles.summaryCard,
+										index > 0 ? { marginTop: 16 } : null,
+									]}
+								>
+									<LastScannedSummary
+										lastScan={scan}
+										onPrint={() => {
+											// Langsung buka layar preview untuk scan ini
+											// eslint-disable-next-line @typescript-eslint/no-misused-promises
+											handlePrintScan(scan);
+										}}
+										onDelete={() => handleDeleteScan(scan.scannedAt)}
+									/>
+								</SectionCard>
+							))}
 				{/* Tombol Print All muncul kalau lebih dari satu scan */}
 				{hasScans && scans.length > 1 && (
 					<View style={styles.printAllContainer}>

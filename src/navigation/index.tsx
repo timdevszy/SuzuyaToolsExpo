@@ -20,6 +20,8 @@ import { Settings } from './screens/Settings/Settings';
 import { Updates } from './screens/Updates/Updates';
 import { AdjustPrinter } from '../modules/discount/screens/AdjustPrinterScreen';
 import { ScanProduct } from '../modules/discount/screens/ScanProductScreen';
+import { PrintPreviewScreen } from '../modules/discount/screens/PrintLabelPreviewScreen';
+import { PrintLabelDefaultScreen } from '../modules/discount/screens/PrintLabelDefaultScreen';
 import { Discount } from '../modules/discount/screens/DiscountScreen';
 import { NotFound } from './screens/NotFound/NotFound';
 
@@ -195,6 +197,18 @@ const RootStack = createNativeStackNavigator({
       options: {
         title: 'Scan Product',
         headerRight: () => <OutletHeaderRight />,
+      },
+    },
+    PrintLabelDefault: {
+      screen: PrintLabelDefaultScreen,
+      options: {
+        title: 'Preview Label (Default)',
+      },
+    },
+    PrintPreview: {
+      screen: PrintPreviewScreen,
+      options: {
+        title: 'Preview Label',
       },
     },
     NotFound: {
